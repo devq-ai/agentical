@@ -1,0 +1,314 @@
+# Docusaurus Portfolio Playbook
+
+# Properly formatted according to the expected schema
+
+name: "docusaurus_portfolio_playbook"
+description: "Build a public-facing Docusaurus portfolio with six sections"
+objective: "IMPORTANT: The objective is to actually execute the steps to build the portfolio, not just provide instructions. Use tools to execute commands, create files, and build the Docusaurus site. The playbook includes all necessary parameters - do not ask the user for information that's already in the playbook."
+
+# No MCP servers for now
+# mcp_servers:
+#   - mcp-server-brave-search
+
+# Parameters for the playbook
+parameters:
+  - name: "name"
+    type: "string"
+    description: "Your full name"
+    default: "Dion Edge"
+  - name: "profession"
+    type: "string"
+    description: "Your profession or role"
+    default: "Data Engineer | Looker SME | AI/ML Developer | GCP Architect"
+  - name: "about"
+    type: "string"
+    description: "Brief professional bio"
+    default: "Experienced business intelligence leader with deep skill sets in analysis, machine learning, predictive modeling, business strategy and financial planning, data visualization and engineering; team player and functional leader; systems thinker; comic book nerd, former wrestler and boxer"
+  - name: "email"
+    type: "string"
+    description: "Your email address"
+    default: "dionedge@gmail.com"
+  - name: "github"
+    type: "string"
+    description: "Your GitHub URL"
+    default: "https://github.com/wrenchchat"
+  - name: "github_repo"
+    type: "string"
+    description: "Your GitHub organization URL"
+    default: "https://github.com/wrenchchatrepo"
+  - name: "linkedin"
+    type: "string"
+    description: "Your LinkedIn profile URL"
+    default: "https://www.linkedin.com/in/dionedge/"
+  - name: "color_scheme"
+    type: "string"
+    description: "Your preferred color scheme"
+    default: "Dark gray background with bright text and accents (similar to easy-dates.dev)"
+
+# Portfolio parameters for Dion Edge (as default values)
+portfolio_details:
+  name: "Dion Edge"
+  profession: "Data Engineer | Looker SME | AI/ML Developer | GCP Architect"
+  about: "Experienced business intelligence leader with deep skill sets in analysis, machine learning, predictive modeling, business strategy and financial planning, data visualization and engineering; team player and functional leader; systems thinker; comic book nerd, former wrestler and boxer"
+  email: "dionedge@gmail.com"
+  github: "https://github.com/wrenchchat"
+  github_repo: "https://github.com/wrenchchatrepo"
+  linkedin: "https://www.linkedin.com/in/dionedge/"
+  color_scheme: "Dark gray background with bright text and accents (similar to easy-dates.dev)"
+  sections:
+    - "Home/About"
+    - "Projects"
+    - "Scripts & Articles"
+    - "Skills/Expertise"
+    - "Resume/CV"
+    - "Contact"
+  skills:
+    - "python"
+    - "sql"
+    - "lookml"
+    - "git"
+    - "js/ts"
+    - "neural networks"
+    - "logistic growth model"
+    - "random forrest"
+    - "genetic algorithms"
+  projects:
+    - name: "Wrench AI"
+      description: "An agentic framework to build stuff"
+      url: "https://github.com/wrenchchatrepo/wrenchai"
+    - name: "Bayes"
+      description: "An MCP for Bayesian and predictive inference"
+      url: "https://github.com/wrenchchatrepo/bayes"
+    - name: "goo10burg"
+      description: "Write tech articles, scripts, and use Eraser.io AI API to add diagrams"
+      url: "https://github.com/wrenchchatrepo/goo10burg"
+    - name: "lookerhelp"
+      description: "lookerhelp.com: Everything for Looker: an agentic RAG environment powered by Gemini 2.0, scripts, docs and more"
+      url: "https://github.com/wrenchchatrepo/lookerhelp"
+    - name: "secrets-manager"
+      description: "A simple secure secrets manager for your IDE"
+      url: "https://github.com/wrenchchatrepo/secrets-manager"
+
+# Agent configuration
+metadata:
+  tools:
+    - web_search
+    - secrets_manager
+    - memory
+    - code_generation
+    - code_execution
+    - github_tool
+    - github_mcp
+    - puppeteer
+    - browser_tools
+    - bayesian_update
+    - data_analysis
+    - test_tool
+    - database_tool
+    - monitoring_tool
+  agents:
+    - SuperAgent
+    - GithubJourneyAgent
+    - CodeGeneratorAgent
+    - CodifierAgent
+    - UXDesignerAgent
+    - InspectorAgent
+    - TestEngineerAgent
+    - UATAgent
+    - DBA
+  agent_llms:
+    SuperAgent: "claude-3-7-sonnet-20250219"
+    GithubJourneyAgent: "gpt-4"
+    CodeGeneratorAgent: "claude-3-7-sonnet-20250219"
+    CodifierAgent: "claude-3-7-sonnet-20250219"
+    UXDesignerAgent: "gpt-4"
+    InspectorAgent: "claude-3-7-sonnet-20250219"
+    TestEngineerAgent: "claude-3-7-sonnet-20250219"
+    UATAgent: "gemini-1.5-pro"
+    DBA: "claude-3-7-sonnet-20250219"
+
+# Workflow section containing the actual steps
+workflow:
+  - step_id: analyze_source_materials
+    type: standard
+    description: "Analyze source materials and create a comprehensive project plan for execution (not just instructions)"
+    agent: SuperAgent
+    operation: "analyze_and_execute"
+    parameters:
+      name: "Dion Edge"
+      profession: "Data Engineer | Looker SME | AI/ML Developer | GCP Architect"
+      about: "Experienced business intelligence leader with deep skill sets in analysis, machine learning, predictive modeling, business strategy and financial planning, data visualization and engineering; team player and functional leader; systems thinker; comic book nerd, former wrestler and boxer"
+      email: "dionedge@gmail.com"
+      github: "https://github.com/wrenchchat"
+      github_repo: "https://github.com/wrenchchatrepo"
+      linkedin: "https://www.linkedin.com/in/dionedge/"
+      color_scheme: "Dark gray background with bright text and accents (similar to easy-dates.dev)"
+      user_details: user_info
+    next: setup_repository
+
+  - step_id: setup_repository
+    type: standard
+    description: "Create and configure GitHub repository for Docusaurus site"
+    agent: GithubJourneyAgent
+    operation: "setup_docusaurus_repo"
+    tools:
+      - github_tool
+      - github_mcp
+    parameters:
+      repo_name: "portfolio-dion-edge"
+      description: "Dion Edge's personal portfolio site built with Docusaurus"
+      private: false
+      auto_init: true
+      user_github: "https://github.com/wrenchchat"
+      github_org: "https://github.com/wrenchchatrepo"
+      user_name: "Dion Edge"
+      user_details: user_info
+    next: design_ui
+
+  - step_id: design_ui
+    type: partner_feedback_loop
+    description: "Design UI and site structure with feedback cycles"
+    agents:
+      creator: UXDesignerAgent
+      reviewer: InspectorAgent
+    operations:
+      - role: creator
+        name: "design_site_structure"
+        parameters:
+          user_name: "Dion Edge"
+          profession: "Data Engineer | Looker SME | AI/ML Developer | GCP Architect"
+          color_scheme: "Dark gray background with bright text and accents (similar to easy-dates.dev)"
+          design_preferences: "Dark gray background with bright text and accents (similar to easy-dates.dev)"
+          user_details: user_info
+      - role: reviewer
+        name: "review_design"
+      - role: creator
+        name: "refine_design"
+    iterations: 2
+    next: setup_docusaurus
+
+  - step_id: setup_docusaurus
+    type: standard
+    description: "Set up and configure Docusaurus environment"
+    agent: CodeGeneratorAgent
+    operation: "setup_docusaurus_environment"
+    tools:
+      - code_execution
+      - code_generation
+    parameters:
+      user_name: "Dion Edge"
+      profession: "Data Engineer | Looker SME | AI/ML Developer | GCP Architect"
+      github: "https://github.com/wrenchchat"
+      github_org: "https://github.com/wrenchchatrepo"
+      user_details: user_info
+    next: generate_content
+
+  - step_id: generate_content
+    type: work_in_parallel
+    description: "Generate content for all six sections concurrently"
+    agents:
+      - CodeGeneratorAgent:generate_github_projects
+      - CodeGeneratorAgent:generate_useful_scripts
+      - CodeGeneratorAgent:generate_technical_articles
+      - CodeGeneratorAgent:generate_frontend_examples
+      - CodeGeneratorAgent:generate_gcp_pipeline
+      - CodeGeneratorAgent:generate_data_science
+    input_distribution:
+      type: split
+      field: "sections"
+    parameters:
+      user_name: "Dion Edge"
+      profession: "Data Engineer | Looker SME | AI/ML Developer | GCP Architect"
+      about: "Experienced business intelligence leader with deep skill sets in analysis, machine learning, predictive modeling, business strategy and financial planning, data visualization and engineering; team player and functional leader; systems thinker; comic book nerd, former wrestler and boxer"
+      email: "dionedge@gmail.com"
+      user_details: user_info
+    output_aggregation:
+      type: merge
+      strategy: "combine_content"
+    next: standardize_code
+
+  - step_id: standardize_code
+    type: partner_feedback_loop
+    description: "Standardize and optimize code across all sections"
+    agents:
+      creator: CodifierAgent
+      reviewer: InspectorAgent
+    operations:
+      - role: creator
+        name: "standardize_code"
+      - role: reviewer
+        name: "review_code_standards"
+      - role: creator
+        name: "apply_code_improvements"
+    iterations: 2
+    next: develop_tests
+
+  - step_id: develop_tests
+    type: standard
+    description: "Develop comprehensive test suite for the portfolio"
+    agent: TestEngineerAgent
+    operation: "develop_test_suite"
+    tools:
+      - code_execution
+      - github_tool
+    next: run_tests
+
+  - step_id: run_tests
+    type: process
+    description: "Run tests with validation and error handling"
+    agent: TestEngineerAgent
+    input:
+      source: "test_suite"
+    process:
+      - operation: "run_unit_tests"
+        condition: "unit_tests_passed == true"
+        failure_action: "log_and_fix"
+      - operation: "run_integration_tests"
+        condition: "integration_tests_passed == true"
+        failure_action: "log_and_fix" 
+      - operation: "run_e2e_tests"
+        condition: "e2e_tests_passed == true"
+        failure_action: "log_and_fix"
+    output:
+      destination: "test_results"
+    next: user_acceptance_testing
+
+  - step_id: user_acceptance_testing
+    type: standard
+    description: "Perform user acceptance testing"
+    agent: UATAgent
+    operation: "perform_uat"
+    tools:
+      - browser_tools
+      - memory
+    next: final_review
+
+  - step_id: final_review
+    type: partner_feedback_loop
+    description: "Final review and polish of the entire portfolio"
+    agents:
+      creator: CodifierAgent
+      reviewer: InspectorAgent
+    operations:
+      - role: creator
+        name: "final_polish"
+      - role: reviewer
+        name: "comprehensive_review"
+      - role: creator
+        name: "apply_final_fixes"
+    iterations: 1
+    next: deploy
+
+  - step_id: deploy
+    type: handoff
+    description: "Deploy portfolio to GitHub Pages with specialist handling"
+    primary_agent: GithubJourneyAgent
+    operation: "prepare_deployment"
+    handoff_conditions:
+      - condition: "needs_ci_cd_setup == true"
+        target_agent: CodeGeneratorAgent
+        operation: "setup_ci_cd"
+      - condition: "needs_domain_config == true"
+        target_agent: UXDesignerAgent
+        operation: "configure_custom_domain"
+    completion_action: "deploy_to_github_pages"

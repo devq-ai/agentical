@@ -1,0 +1,72 @@
+# Agentical Documentation Rules
+
+## Writing Standards
+
+1. Use Markdown for all documentation files
+2. Follow the Google Developer Documentation Style Guide
+3. Use American English spelling and grammar
+4. Keep sentences concise and clear
+5. Use present tense and active voice
+6. Avoid jargon and unnecessary technical terms
+7. Include code examples for technical concepts
+
+## Document Structure
+
+1. Each document should have a clear title as the first H1 heading
+2. Include a table of contents for documents longer than 500 words
+3. Use headings to organize content hierarchically (H1 > H2 > H3...)
+4. Keep heading levels sequential (don't skip from H2 to H4)
+5. Each document should have an introduction and conclusion
+
+## Code Examples
+
+1. Include code examples for all API methods and functions
+2. Use syntax highlighting with the appropriate language identifier
+3. Provide complete, working examples that can be copied and run
+4. Include comments in code examples to explain complex operations
+5. Follow the project's coding style guide in all examples
+
+## Diagrams and Images
+
+1. Place all images in the /images directory
+2. Use SVG format for diagrams when possible
+3. Include alt text for all images for accessibility
+4. Keep diagrams simple and focused on a single concept
+5. Use consistent color schemes and styling across diagrams
+
+## Versioning
+
+1. Document which version of Agentical the documentation applies to
+2. Note any changes in behavior between versions
+3. Mark deprecated features clearly with a deprecation notice
+4. Document migration paths for breaking changes
+
+## API Documentation
+
+1. Document all public APIs, classes, and methods
+2. Include parameter descriptions, types, and default values
+3. Document return values and possible exceptions
+4. Provide usage examples for complex APIs
+5. Include links to related documentation
+
+## Review Process
+
+1. All documentation changes require a technical review
+2. Documentation PRs should include a summary of changes
+3. Reviewers should check for technical accuracy and clarity
+4. Documentation must be updated alongside code changes
+
+## Specifications
+
+1. All specifications should be placed in the /specs directory
+2. Specifications must include motivation, requirements, and design
+3. Use diagrams to illustrate complex interactions or architectures
+4. Include implementation considerations and alternatives
+5. Reference related specifications or external standards
+
+## Context Documents
+
+1. Context documents in the /context directory provide background information
+2. Include historical decisions and architectural considerations
+3. Document integration points with other systems
+4. Explain the problem domain for newcomers to the project
