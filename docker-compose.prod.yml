@@ -1,0 +1,305 @@
+# Agentical Production Docker Compose Configuration
+# For production deployment with optimized settings
+
+version: '3.8'
+
+services:
+  # Main Agentical Application (Production)
+  agentical:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        BUILD_DATE: ${BUILD_DATE}
+        VERSION: ${VERSION}
+        VCS_REF: ${VCS_REF}
+    image: agentical:${VERSION:-latest}
+    container_name: agentical-app-prod
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=production
+      - PORT=8000
+      - SURREALDB_URL=${SURREALDB_URL}
+      - SURREALDB_USERNAME=${SURREALDB_USERNAME}
+      - SURREALDB_PASSWORD=${SURREALDB_PASSWORD}
+      - SURREALDB_NAMESPACE=${SURREALDB_NAMESPACE}
+      - SURREALDB_DATABASE=${SURREALDB_DATABASE}
+      - REDIS_URL=${REDIS_URL}
+      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - PTOLEMIES_PATH=${PTOLEMIES_PATH}
+      - MACHINA_PATH=${MACHINA_PATH}
+    volumes:
+      - agentical_logs:/app/logs
+      - agentical_data:/app/data
+      - agentical_cache:/app/cache
+    depends_on:
+      surrealdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - agentical-prod-network
+    restart: always
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # SurrealDB Database (Production)
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: agentical-surrealdb-prod
+    ports:
+      - "8001:8000"
+    command: start --log info --user ${SURREALDB_USERNAME} --pass ${SURREALDB_PASSWORD} file:/data/surreal.db
+    environment:
+      - SURREAL_USER=${SURREALDB_USERNAME}
+      - SURREAL_PASS=${SURREALDB_PASSWORD}
+    volumes:
+      - surrealdb_prod_data:/data
+    networks:
+      - agentical-prod-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Redis Cache (Production)
+  redis:
+    image: redis:7-alpine
+    container_name: agentical-redis-prod
+    ports:
+      - "6379:6379"
+    command: |
+      redis-server 
+      --appendonly yes 
+      --maxmemory 1gb 
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_prod_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - agentical-prod-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Frontend (Production)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    image: agentical-frontend:${VERSION:-latest}
+    container_name: agentical-frontend-prod
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    depends_on:
+      - agentical
+    networks:
+      - agentical-prod-network
+    restart: always
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Nginx Load Balancer (Production)
+  nginx:
+    image: nginx:alpine
+    container_name: agentical-nginx-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - agentical
+      - frontend
+    networks:
+      - agentical-prod-network
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Monitoring and Observability
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: agentical-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - agentical-prod-network
+    restart: always
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: agentical-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - agentical-prod-network
+    restart: always
+    profiles:
+      - monitoring
+
+volumes:
+  surrealdb_prod_data:
+    driver: local
+  redis_prod_data:
+    driver: local
+  agentical_logs:
+    driver: local
+  agentical_data:
+    driver: local
+  agentical_cache:
+    driver: local
+  nginx_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  agentical-prod-network:
+    driver: bridge
+    name: agentical-prod-net
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Production deployment configuration
+configs:
+  nginx_config:
+    file: ./nginx/nginx.prod.conf
+  redis_config:
+    file: ./redis.conf
+
+secrets:
+  surrealdb_password:
+    external: true
+  redis_password:
+    external: true
+  secret_key:
+    external: true

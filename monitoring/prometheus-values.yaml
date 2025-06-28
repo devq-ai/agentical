@@ -1,0 +1,403 @@
+# Prometheus Stack Configuration for Agentical
+# Production-ready monitoring with Grafana, AlertManager, and Node Exporter
+
+# Global Prometheus configuration
+prometheus:
+  prometheusSpec:
+    replicas: 2
+    retention: 30d
+    retentionSize: 50GB
+    
+    # Resource allocation
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 8Gi
+    
+    # Storage configuration
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: fast-ssd
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 100Gi
+    
+    # Scrape configuration
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    
+    # External labels for federation
+    externalLabels:
+      cluster: agentical-production
+      region: us-west-2
+    
+    # Additional scrape configs for Agentical services
+    additionalScrapeConfigs:
+    - job_name: 'agentical-api'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - agentical
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: agentical-api
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: metrics
+    
+    - job_name: 'agentical-worker'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - agentical
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: agentical-worker
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: metrics
+    
+    - job_name: 'surrealdb'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - agentical
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: surrealdb
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: metrics
+    
+    - job_name: 'redis'
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names:
+          - agentical
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_name]
+        action: keep
+        regex: redis
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: metrics
+
+# Grafana configuration
+grafana:
+  enabled: true
+  replicas: 2
+  
+  # Resource allocation
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  
+  # Persistence
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: fast-ssd
+  
+  # Admin credentials
+  adminPassword: AgenticalSecure2024!
+  
+  # Grafana configuration
+  grafana.ini:
+    server:
+      root_url: https://grafana.agentical.com
+      serve_from_sub_path: true
+    
+    auth:
+      disable_login_form: false
+      oauth_auto_login: false
+    
+    auth.anonymous:
+      enabled: true
+      org_role: Viewer
+      hide_version: true
+    
+    security:
+      allow_embedding: true
+      cookie_secure: true
+      cookie_samesite: strict
+    
+    snapshots:
+      external_enabled: false
+    
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+    
+    log:
+      mode: console
+      level: info
+  
+  # Default dashboards
+  defaultDashboardsEnabled: true
+  defaultDashboardsTimezone: UTC
+  
+  # Data source configuration
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-operated:9090
+        access: proxy
+        isDefault: true
+        jsonData:
+          timeInterval: 30s
+      
+      - name: Loki
+        type: loki
+        url: http://loki:3100
+        access: proxy
+        jsonData:
+          maxLines: 1000
+      
+      - name: Jaeger
+        type: jaeger
+        url: http://jaeger-query:16686
+        access: proxy
+  
+  # Dashboard providers
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'agentical-dashboards'
+        orgId: 1
+        folder: 'Agentical'
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/agentical
+  
+  # Custom dashboards
+  dashboards:
+    agentical:
+      agentical-overview:
+        gnetId: 12175
+        revision: 2
+        datasource: Prometheus
+      
+      kubernetes-cluster:
+        gnetId: 7249
+        revision: 1
+        datasource: Prometheus
+      
+      redis-dashboard:
+        gnetId: 763
+        revision: 4
+        datasource: Prometheus
+
+# AlertManager configuration
+alertmanager:
+  alertmanagerSpec:
+    replicas: 3
+    retention: 120h
+    
+    # Resource allocation
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    
+    # Storage
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: fast-ssd
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+    
+    # External URL
+    externalUrl: https://alertmanager.agentical.com
+    
+    # Route prefix
+    routePrefix: /
+  
+  # AlertManager configuration
+  config:
+    global:
+      smtp_smarthost: 'smtp.gmail.com:587'
+      smtp_from: 'alerts@agentical.com'
+      smtp_auth_username: 'alerts@agentical.com'
+      smtp_auth_password: 'your-app-password'
+      slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    
+    route:
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 12h
+      receiver: 'default'
+      routes:
+      - match:
+          severity: critical
+        receiver: 'critical-alerts'
+        group_wait: 5s
+        repeat_interval: 5m
+      
+      - match:
+          severity: warning
+        receiver: 'warning-alerts'
+        repeat_interval: 30m
+      
+      - match:
+          alertname: DeadMansSwitch
+        receiver: 'null'
+    
+    receivers:
+    - name: 'default'
+      slack_configs:
+      - channel: '#monitoring'
+        title: 'Agentical Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        send_resolved: true
+    
+    - name: 'critical-alerts'
+      slack_configs:
+      - channel: '#critical-alerts'
+        title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |
+          *Alert:* {{ .GroupLabels.alertname }}
+          *Severity:* {{ .CommonLabels.severity }}
+          *Summary:* {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
+          *Description:* {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+        send_resolved: true
+        color: 'danger'
+      
+      email_configs:
+      - to: 'oncall@agentical.com'
+        subject: 'CRITICAL Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Alert: {{ .GroupLabels.alertname }}
+          Severity: {{ .CommonLabels.severity }}
+          Summary: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
+          Description: {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+          
+          Runbook: {{ range .Alerts }}{{ .Annotations.runbook_url }}{{ end }}
+    
+    - name: 'warning-alerts'
+      slack_configs:
+      - channel: '#warnings'
+        title: '⚠️ WARNING: {{ .GroupLabels.alertname }}'
+        text: |
+          *Alert:* {{ .GroupLabels.alertname }}
+          *Severity:* {{ .CommonLabels.severity }}
+          *Summary:* {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
+        send_resolved: true
+        color: 'warning'
+    
+    - name: 'null'
+
+# Node Exporter configuration
+nodeExporter:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+# Kube State Metrics configuration
+kubeStateMetrics:
+  enabled: true
+
+# CoreDNS monitoring
+coreDns:
+  enabled: true
+
+# Kubelet monitoring
+kubelet:
+  enabled: true
+  serviceMonitor:
+    cAdvisorMetricRelabelings:
+    - sourceLabels: [__name__]
+      regex: container_cpu_usage_seconds_total|container_memory_working_set_bytes|container_fs_usage_bytes|container_fs_limit_bytes|container_cpu_cfs_periods_total|container_cpu_cfs_throttled_periods_total|container_cpu_cfs_throttled_seconds_total|container_memory_usage_bytes|container_memory_cache|container_memory_rss|container_memory_swap|container_spec_memory_limit_bytes|container_spec_memory_swap_limit_bytes|container_spec_memory_reservation_limit_bytes|container_spec_cpu_quota|container_spec_cpu_period|container_fs_reads_total|container_fs_writes_total|container_fs_read_seconds_total|container_fs_write_seconds_total|container_fs_reads_bytes_total|container_fs_writes_bytes_total
+      action: keep
+
+# Etcd monitoring (for managed clusters, may not be accessible)
+kubeEtcd:
+  enabled: false
+
+# Controller Manager monitoring (for managed clusters, may not be accessible)
+kubeControllerManager:
+  enabled: false
+
+# Scheduler monitoring (for managed clusters, may not be accessible)
+kubeScheduler:
+  enabled: false
+
+# Proxy monitoring
+kubeProxy:
+  enabled: true
+
+# Default rules
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: false
+    configReloaders: true
+    general: true
+    k8s: true
+    kubeApiserverAvailability: true
+    kubeApiserverBurnrate: true
+    kubeApiserverHistogram: true
+    kubeApiserverSlos: true
+    kubelet: true
+    kubeProxy: true
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    network: true
+    node: true
+    nodeExporterAlerting: true
+    nodeExporterRecording: true
+    prometheus: true
+    prometheusOperator: true
+
+# Service monitor for the stack itself
+prometheus-operator:
+  serviceMonitor:
+    selfMonitor: true
+
+# Additional configuration for cloud providers
+cloudProvider:
+  aws:
+    enabled: true
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-internal: "false"
+  
+  gcp:
+    enabled: false
+  
+  azure:
+    enabled: false

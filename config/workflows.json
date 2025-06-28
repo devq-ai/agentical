@@ -1,0 +1,230 @@
+{
+  "workflows": {
+    "code_review_workflow": {
+      "name": "Code Review Workflow",
+      "description": "Automated code review process with quality checks and documentation",
+      "version": "1.0.0",
+      "steps": [
+        {
+          "id": "analyze_code",
+          "name": "Code Analysis",
+          "agent_type": "development_agent",
+          "operation": "analyze_code",
+          "parameters": {
+            "include_patterns": ["*.py", "*.js", "*.ts"],
+            "exclude_patterns": ["**/node_modules/**", "**/__pycache__/**"],
+            "analysis_depth": "comprehensive"
+          },
+          "timeout_seconds": 300.0,
+          "retry_attempts": 3
+        },
+        {
+          "id": "run_tests",
+          "name": "Run Test Suite",
+          "agent_type": "development_agent", 
+          "operation": "run_tests",
+          "parameters": {
+            "test_frameworks": ["pytest", "jest"],
+            "coverage_threshold": 80
+          },
+          "depends_on": ["analyze_code"],
+          "timeout_seconds": 600.0,
+          "retry_attempts": 2
+        },
+        {
+          "id": "security_scan",
+          "name": "Security Vulnerability Scan",
+          "agent_type": "super_agent",
+          "operation": "security_scan",
+          "parameters": {
+            "scan_dependencies": true,
+            "scan_code": true,
+            "severity_threshold": "medium"
+          },
+          "depends_on": ["analyze_code"],
+          "parallel_execution": true,
+          "timeout_seconds": 300.0
+        },
+        {
+          "id": "generate_documentation",
+          "name": "Generate Documentation",
+          "agent_type": "super_agent",
+          "operation": "generate_docs",
+          "parameters": {
+            "doc_formats": ["markdown", "sphinx"],
+            "include_api_docs": true,
+            "include_examples": true
+          },
+          "depends_on": ["run_tests", "security_scan"],
+          "timeout_seconds": 240.0
+        },
+        {
+          "id": "review_summary",
+          "name": "Generate Review Summary",
+          "agent_type": "super_agent",
+          "operation": "generate_summary",
+          "parameters": {
+            "include_metrics": true,
+            "include_recommendations": true,
+            "output_format": "markdown"
+          },
+          "depends_on": ["generate_documentation"],
+          "timeout_seconds": 120.0
+        }
+      ],
+      "parallel_execution": true,
+      "timeout_seconds": 1800.0,
+      "auto_retry": true,
+      "max_retries": 2,
+      "checkpoint_enabled": true,
+      "rollback_on_failure": false,
+      "logging_level": "INFO",
+      "metrics_enabled": true,
+      "trace_enabled": true,
+      "author": "DevQ.ai",
+      "tags": ["development", "quality", "automation"]
+    },
+    "knowledge_query_workflow": {
+      "name": "Knowledge Query Workflow",
+      "description": "Intelligent knowledge base querying with context enrichment",
+      "version": "1.0.0",
+      "steps": [
+        {
+          "id": "parse_query",
+          "name": "Parse and Analyze Query",
+          "agent_type": "super_agent",
+          "operation": "parse_query",
+          "parameters": {
+            "extract_entities": true,
+            "identify_intent": true,
+            "expand_context": true
+          },
+          "timeout_seconds": 30.0
+        },
+        {
+          "id": "search_knowledge_base",
+          "name": "Search Ptolemies Knowledge Base",
+          "agent_type": "super_agent",
+          "operation": "search_knowledge",
+          "parameters": {
+            "use_vector_search": true,
+            "similarity_threshold": 0.7,
+            "max_results": 10
+          },
+          "depends_on": ["parse_query"],
+          "timeout_seconds": 60.0
+        },
+        {
+          "id": "enrich_context",
+          "name": "Enrich with Contextual Information",
+          "agent_type": "super_agent",
+          "operation": "enrich_context",
+          "parameters": {
+            "use_context7": true,
+            "include_related_topics": true,
+            "context_depth": 3
+          },
+          "depends_on": ["search_knowledge_base"],
+          "timeout_seconds": 45.0
+        },
+        {
+          "id": "generate_response",
+          "name": "Generate Comprehensive Response",
+          "agent_type": "super_agent",
+          "operation": "generate_response",
+          "parameters": {
+            "include_sources": true,
+            "include_confidence_scores": true,
+            "format": "structured"
+          },
+          "depends_on": ["enrich_context"],
+          "timeout_seconds": 90.0
+        }
+      ],
+      "parallel_execution": false,
+      "timeout_seconds": 300.0,
+      "auto_retry": true,
+      "max_retries": 3,
+      "checkpoint_enabled": false,
+      "rollback_on_failure": true,
+      "logging_level": "DEBUG",
+      "metrics_enabled": true,
+      "trace_enabled": true,
+      "author": "DevQ.ai",
+      "tags": ["knowledge", "search", "ai"]
+    },
+    "system_monitoring_workflow": {
+      "name": "System Monitoring Workflow",
+      "description": "Continuous system health monitoring and alerting",
+      "version": "1.0.0",
+      "steps": [
+        {
+          "id": "collect_metrics",
+          "name": "Collect System Metrics",
+          "agent_type": "generic_agent",
+          "operation": "collect_metrics",
+          "parameters": {
+            "metrics_types": ["cpu", "memory", "disk", "network"],
+            "collection_interval": 60,
+            "include_processes": true
+          },
+          "timeout_seconds": 30.0
+        },
+        {
+          "id": "analyze_health",
+          "name": "Analyze System Health",
+          "agent_type": "super_agent",
+          "operation": "analyze_health",
+          "parameters": {
+            "thresholds": {
+              "cpu_usage": 80,
+              "memory_usage": 85,
+              "disk_usage": 90
+            },
+            "trend_analysis": true
+          },
+          "depends_on": ["collect_metrics"],
+          "timeout_seconds": 45.0
+        },
+        {
+          "id": "check_dependencies",
+          "name": "Check External Dependencies",
+          "agent_type": "generic_agent",
+          "operation": "check_dependencies",
+          "parameters": {
+            "services": ["surrealdb", "redis", "ptolemies"],
+            "timeout_per_check": 10
+          },
+          "parallel_execution": true,
+          "timeout_seconds": 60.0
+        },
+        {
+          "id": "generate_alerts",
+          "name": "Generate Alerts if Needed",
+          "agent_type": "super_agent",
+          "operation": "generate_alerts",
+          "parameters": {
+            "alert_channels": ["logfire", "console"],
+            "severity_levels": ["warning", "error", "critical"]
+          },
+          "depends_on": ["analyze_health", "check_dependencies"],
+          "timeout_seconds": 30.0,
+          "conditions": {
+            "alert_required": true
+          }
+        }
+      ],
+      "parallel_execution": true,
+      "timeout_seconds": 300.0,
+      "auto_retry": true,
+      "max_retries": 3,
+      "checkpoint_enabled": false,
+      "rollback_on_failure": false,
+      "logging_level": "INFO",
+      "metrics_enabled": true,
+      "trace_enabled": true,
+      "author": "DevQ.ai",
+      "tags": ["monitoring", "health", "system"]
+    }
+  }
+}

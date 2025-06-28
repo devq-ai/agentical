@@ -1,0 +1,142 @@
+# Agentical Main Application Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentical-service
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: agentical-platform
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: api
+
+---
+# SurrealDB Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: surrealdb-service
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: surrealdb
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: agentical-platform
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app.kubernetes.io/name: surrealdb
+    app.kubernetes.io/component: database
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/part-of: agentical-platform
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6379
+    targetPort: redis
+    protocol: TCP
+    name: redis
+  selector:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: agentical-platform
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: frontend
+
+---
+# LoadBalancer Service for External Access
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentical-loadbalancer
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: loadbalancer
+    app.kubernetes.io/part-of: agentical-platform
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 443
+    protocol: TCP
+    name: https
+  selector:
+    app.kubernetes.io/name: nginx
+    app.kubernetes.io/component: proxy
+
+---
+# Headless Service for StatefulSet (if needed)
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentical-headless
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: headless
+    app.kubernetes.io/part-of: agentical-platform
+spec:
+  clusterIP: None
+  ports:
+  - port: 8000
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: api

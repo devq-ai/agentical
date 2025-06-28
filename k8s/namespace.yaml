@@ -1,0 +1,58 @@
+# Kubernetes Namespace for Agentical
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agentical
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: namespace
+    app.kubernetes.io/part-of: agentical-platform
+---
+# Resource Quota for the namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: agentical-quota
+  namespace: agentical
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    persistentvolumeclaims: "10"
+    services: "10"
+    secrets: "20"
+    configmaps: "20"
+---
+# Network Policy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agentical-network-policy
+  namespace: agentical
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: agentical
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: agentical

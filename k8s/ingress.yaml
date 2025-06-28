@@ -1,0 +1,213 @@
+# Nginx Ingress for Agentical
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agentical-ingress
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: agentical-platform
+  annotations:
+    # Nginx Ingress Controller annotations
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    
+    # CORS configuration
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, PUT, POST, DELETE, PATCH, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
+    
+    # Connection settings
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options DENY;
+      add_header X-Content-Type-Options nosniff;
+      add_header X-XSS-Protection "1; mode=block";
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+      add_header Referrer-Policy "strict-origin-when-cross-origin";
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss:;";
+    
+    # Certificate management (cert-manager)
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    acme.cert-manager.io/http01-edit-in-place: "true"
+
+spec:
+  tls:
+  - hosts:
+    - agentical.example.com
+    - api.agentical.example.com
+    secretName: agentical-tls
+  
+  rules:
+  # Main application domain
+  - host: agentical.example.com
+    http:
+      paths:
+      # Frontend routes
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 3000
+      
+      # API routes
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: agentical-service
+            port:
+              number: 8000
+      
+      # Health check endpoint
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: agentical-service
+            port:
+              number: 8000
+      
+      # Metrics endpoint (protected)
+      - path: /metrics
+        pathType: Exact
+        backend:
+          service:
+            name: agentical-service
+            port:
+              number: 8000
+  
+  # API subdomain
+  - host: api.agentical.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: agentical-service
+            port:
+              number: 8000
+
+---
+# Alternative Ingress for AWS ALB (if using AWS)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: agentical-alb-ingress
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: agentical-platform
+  annotations:
+    # AWS Load Balancer Controller annotations
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/load-balancer-name: agentical-alb
+    
+    # Health checks
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "2"
+    
+    # SSL
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-west-2:123456789:certificate/your-cert-arn"
+    
+    # Security
+    alb.ingress.kubernetes.io/wafv2-acl-arn: "arn:aws:wafv2:us-west-2:123456789:regional/webacl/your-waf-arn"
+    
+    # Performance
+    alb.ingress.kubernetes.io/load-balancer-attributes: |
+      idle_timeout.timeout_seconds=60,
+      routing.http2.enabled=true,
+      access_logs.s3.enabled=true,
+      access_logs.s3.bucket=your-alb-logs-bucket,
+      access_logs.s3.prefix=agentical
+
+spec:
+  tls:
+  - hosts:
+    - agentical.example.com
+  
+  rules:
+  - host: agentical.example.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: agentical-service
+            port:
+              number: 8000
+      
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 3000
+
+---
+# Gateway API (future-proof alternative)
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: agentical-http-route
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: gateway
+spec:
+  parentRefs:
+  - name: agentical-gateway
+    namespace: agentical
+  
+  hostnames:
+  - "agentical.example.com"
+  
+  rules:
+  # API routes
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api
+    backendRefs:
+    - name: agentical-service
+      port: 8000
+    
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: X-Forwarded-Proto
+          value: https
+  
+  # Frontend routes
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: frontend-service
+      port: 3000

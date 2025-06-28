@@ -1,0 +1,174 @@
+# Persistent Volume Claims for Agentical
+
+# Agentical Application Data PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agentical-data-pvc
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: agentical-platform
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: fast-ssd  # Use appropriate storage class
+  volumeMode: Filesystem
+
+---
+# SurrealDB Data PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: surrealdb-data-pvc
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: surrealdb
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: agentical-platform
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: fast-ssd
+  volumeMode: Filesystem
+
+---
+# Redis Data PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data-pvc
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: agentical-platform
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+  volumeMode: Filesystem
+
+---
+# Shared Logs PVC (if centralized logging is needed)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agentical-logs-pvc
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: logs
+    app.kubernetes.io/part-of: agentical-platform
+spec:
+  accessModes:
+  - ReadWriteMany  # Multiple pods can write logs
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard  # Logs don't need high-performance storage
+  volumeMode: Filesystem
+
+---
+# Backup Storage PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agentical-backup-pvc
+  namespace: agentical
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/part-of: agentical-platform
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi
+  storageClassName: standard
+  volumeMode: Filesystem
+
+---
+# Storage Classes (examples for different cloud providers)
+
+# AWS EBS GP3 Storage Class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast-ssd
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: storage-class
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  iops: "3000"
+  throughput: "125"
+  encrypted: "true"
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain
+
+---
+# GCP SSD Storage Class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast-ssd-gcp
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: storage-class
+provisioner: pd.csi.storage.gke.io
+parameters:
+  type: pd-ssd
+  replication-type: regional-pd
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain
+
+---
+# Azure Premium SSD Storage Class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast-ssd-azure
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: storage-class
+provisioner: disk.csi.azure.com
+parameters:
+  skuName: Premium_LRS
+  cachingmode: ReadOnly
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain
+
+---
+# NFS Storage Class (for shared storage)
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-shared
+  labels:
+    app.kubernetes.io/name: agentical
+    app.kubernetes.io/component: storage-class
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: nfs-server.example.com
+  share: /shared/agentical
+  csi.storage.k8s.io/provisioner-secret-name: nfs-csi-secret
+  csi.storage.k8s.io/provisioner-secret-namespace: agentical
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+reclaimPolicy: Retain

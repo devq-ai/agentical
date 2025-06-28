@@ -1,0 +1,176 @@
+{
+  "mcp_servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "description": "File read/write operations for the current project directory"
+    },
+    "git": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-git"],
+      "description": "Version control operations, commits, and branch management"
+    },
+    "fetch": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch"],
+      "description": "API calls and external resource access"
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "description": "Persistent memory across Claude Code sessions"
+    },
+    "sequentialthinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequentialthinking"],
+      "description": "Enhanced step-by-step problem solving"
+    },
+    "context7-mcp": {
+      "command": "python",
+      "args": ["-m", "context7_mcp.server"],
+      "cwd": "../machina/mcp/mcp-servers/context7-mcp",
+      "description": "Advanced contextual reasoning with Redis-backed memory",
+      "env": {
+        "UPSTASH_REDIS_REST_URL": "${UPSTASH_REDIS_REST_URL}",
+        "UPSTASH_REDIS_REST_TOKEN": "${UPSTASH_REDIS_REST_TOKEN}"
+      }
+    },
+    "crawl4ai-mcp": {
+      "command": "python",
+      "args": ["-m", "crawl4ai_mcp.server"],
+      "cwd": "../machina/mcp/mcp-servers/crawl4ai-mcp",
+      "description": "Web scraping and content extraction capabilities"
+    },
+    "logfire-mcp": {
+      "command": "python",
+      "args": ["-m", "logfire_mcp.server"],
+      "cwd": "../machina/mcp/mcp-servers/logfire-mcp",
+      "description": "Pydantic Logfire observability and monitoring integration",
+      "env": {
+        "LOGFIRE_TOKEN": "${LOGFIRE_TOKEN}",
+        "LOGFIRE_PROJECT_NAME": "${LOGFIRE_PROJECT_NAME:-agentical}",
+        "LOGFIRE_SERVICE_NAME": "${LOGFIRE_SERVICE_NAME:-agentical-mcp}",
+        "LOGFIRE_ENVIRONMENT": "${LOGFIRE_ENVIRONMENT:-development}"
+      }
+    },
+    "magic-mcp": {
+      "command": "python",
+      "args": ["-m", "magic_mcp.server"],
+      "cwd": "../machina/mcp/mcp-servers/magic-mcp",
+      "description": "Magic utilities and helper functions"
+    },
+    "surrealdb-mcp": {
+      "command": "python",
+      "args": ["-m", "surrealdb_mcp.server"],
+      "cwd": "../machina/mcp/mcp-servers/surrealdb-mcp",
+      "description": "SurrealDB database operations and queries",
+      "env": {
+        "SURREALDB_URL": "${SURREALDB_URL:-ws://localhost:8000/rpc}",
+        "SURREALDB_USERNAME": "${SURREALDB_USERNAME:-root}",
+        "SURREALDB_PASSWORD": "${SURREALDB_PASSWORD:-root}",
+        "SURREALDB_NAMESPACE": "${SURREALDB_NAMESPACE:-ptolemies}",
+        "SURREALDB_DATABASE": "${SURREALDB_DATABASE:-knowledge}"
+      }
+    },
+    "taskmaster-ai": {
+      "command": "python",
+      "args": ["-m", "server"],
+      "cwd": "../machina/mcp/mcp-servers/task-master",
+      "description": "TaskMaster AI project management and task tracking",
+      "env": {
+        "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+        "MODEL": "${MODEL:-claude-3-7-sonnet-20250219}"
+      }
+    },
+    "ptolemies-mcp": {
+      "command": "python",
+      "args": ["-m", "ptolemies_mcp.server"],
+      "cwd": "../ptolemies",
+      "description": "Ptolemies knowledge base integration with SurrealDB",
+      "env": {
+        "SURREALDB_URL": "${SURREALDB_URL:-ws://localhost:8000/rpc}",
+        "SURREALDB_USERNAME": "${SURREALDB_USERNAME:-root}",
+        "SURREALDB_PASSWORD": "${SURREALDB_PASSWORD:-root}",
+        "SURREALDB_NAMESPACE": "${SURREALDB_NAMESPACE:-ptolemies}",
+        "SURREALDB_DATABASE": "${SURREALDB_DATABASE:-knowledge}"
+      }
+    },
+    "agentql-mcp": {
+      "command": "python",
+      "args": ["-m", "agentql_mcp.server"],
+      "description": "Web automation and query tool using AgentQL"
+    },
+    "bayes-mcp": {
+      "command": "python",
+      "args": ["-m", "bayes_mcp.server"],
+      "description": "Bayesian inference and probabilistic modeling tools"
+    },
+    "browser-tools-mcp": {
+      "command": "python",
+      "args": ["-m", "browser_tools_mcp.server"],
+      "description": "Browser automation and web interaction tools"
+    },
+    "calendar-mcp": {
+      "command": "python",
+      "args": ["-m", "calendar_mcp.server"],
+      "description": "Google Calendar integration for event management and scheduling",
+      "env": {
+        "GOOGLE_CALENDAR_CREDENTIALS": "${GOOGLE_CALENDAR_CREDENTIALS}"
+      }
+    },
+    "dart-mcp": {
+      "command": "npx",
+      "args": ["-y", "dart-mcp-server"],
+      "description": "Dart AI integration for smart code assistance and development",
+      "env": {
+        "DART_TOKEN": "${DART_TOKEN}"
+      }
+    },
+    "github-mcp": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "description": "GitHub API integration for repository management, issues, and pull requests",
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    },
+    "jupyter-mcp": {
+      "command": "python",
+      "args": ["-m", "jupyter_mcp.server"],
+      "description": "Jupyter notebook execution and management"
+    },
+    "registry-mcp": {
+      "command": "python",
+      "args": ["-m", "registry_mcp.server"],
+      "description": "MCP server registry management and discovery"
+    },
+    "shadcn-ui-mcp-server": {
+      "command": "python",
+      "args": ["-m", "shadcn_ui_mcp.server"],
+      "description": "Shadcn/UI component library integration"
+    },
+    "solver-pysat-mcp": {
+      "command": "python",
+      "args": ["-m", "solver_pysat_mcp.server"],
+      "description": "PySAT boolean satisfiability solver"
+    },
+    "solver-z3-mcp": {
+      "command": "python",
+      "args": ["-m", "solver_z3_mcp.server"],
+      "description": "Z3 theorem prover and SMT solver"
+    },
+    "stripe-mcp": {
+      "command": "python",
+      "args": ["-m", "stripe_mcp.server"],
+      "description": "Stripe payment processing integration",
+      "env": {
+        "STRIPE_API_KEY": "${STRIPE_API_KEY}"
+      }
+    },
+    "inspector": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/inspector"],
+      "description": "Debug MCP server connections (optional)"
+    }
+  }
+}

@@ -1,0 +1,140 @@
+# Agentical Development Docker Compose Configuration
+# For local development and testing
+
+version: '3.8'
+
+services:
+  # Main Agentical Application
+  agentical:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_DATE: ${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}
+        VERSION: ${VERSION:-dev}
+        VCS_REF: ${VCS_REF:-$(git rev-parse HEAD)}
+    container_name: agentical-app
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=development
+      - PORT=8000
+      - SURREALDB_URL=ws://surrealdb:8000/rpc
+      - SURREALDB_USERNAME=root
+      - SURREALDB_PASSWORD=root
+      - SURREALDB_NAMESPACE=ptolemies
+      - SURREALDB_DATABASE=knowledge
+      - REDIS_URL=redis://redis:6379
+      - LOGFIRE_TOKEN=${LOGFIRE_TOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./cache:/app/cache
+      - ./config:/app/config
+    depends_on:
+      surrealdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - agentical-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # SurrealDB Database
+  surrealdb:
+    image: surrealdb/surrealdb:latest
+    container_name: agentical-surrealdb
+    ports:
+      - "8001:8000"
+    command: start --log trace --user root --pass root memory
+    environment:
+      - SURREAL_USER=root
+      - SURREAL_PASS=root
+    volumes:
+      - surrealdb_data:/data
+    networks:
+      - agentical-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: agentical-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - agentical-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agentical-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - agentical
+    networks:
+      - agentical-network
+    restart: unless-stopped
+
+  # Nginx Load Balancer (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: agentical-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - agentical
+      - frontend
+    networks:
+      - agentical-network
+    restart: unless-stopped
+    profiles:
+      - with-nginx
+
+volumes:
+  surrealdb_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  agentical-network:
+    driver: bridge
+    name: agentical-net

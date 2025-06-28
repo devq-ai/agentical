@@ -1,0 +1,349 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Agentical Overview Dashboard",
+    "tags": ["agentical", "overview", "production"],
+    "timezone": "UTC",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Application Health",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "up{job=\"agentical-api\"}",
+            "legendFormat": "API Status",
+            "refId": "A"
+          },
+          {
+            "expr": "up{job=\"surrealdb\"}",
+            "legendFormat": "Database Status",
+            "refId": "B"
+          },
+          {
+            "expr": "up{job=\"redis\"}",
+            "legendFormat": "Cache Status",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"options": {"0": {"text": "DOWN", "color": "red"}}, "type": "value"},
+              {"options": {"1": {"text": "UP", "color": "green"}}, "type": "value"}
+            ],
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"]
+          },
+          "orientation": "horizontal"
+        }
+      },
+      {
+        "id": 2,
+        "title": "Request Rate",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(agentical_requests_total[5m]))",
+            "legendFormat": "Requests/sec",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 100},
+                {"color": "red", "value": 1000}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Error Rate",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(agentical_requests_total{status=~\"5..\"}[5m])) / sum(rate(agentical_requests_total[5m])) * 100",
+            "legendFormat": "Error Rate %",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 5}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Response Time (P95)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(agentical_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P95 Latency",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.5},
+                {"color": "red", "value": 2}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Request Volume Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [
+          {
+            "expr": "sum(rate(agentical_requests_total[5m])) by (method)",
+            "legendFormat": "{{method}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {"label": "Requests/sec", "min": 0}
+        ],
+        "legend": {
+          "show": true,
+          "values": false
+        }
+      },
+      {
+        "id": 6,
+        "title": "Response Time Distribution",
+        "type": "graph", 
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(agentical_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(agentical_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(agentical_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P99",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [
+          {"label": "Seconds", "min": 0}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Agent Task Performance",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [
+          {
+            "expr": "sum(rate(agentical_agent_tasks_total[5m])) by (status)",
+            "legendFormat": "{{status}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {"label": "Tasks/sec", "min": 0}
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Database Operations",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {
+            "expr": "sum(rate(agentical_database_operations_total[5m])) by (operation)",
+            "legendFormat": "{{operation}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {"label": "Operations/sec", "min": 0}
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Resource Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+        "targets": [
+          {
+            "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"agentical\"}[5m])) by (pod)",
+            "legendFormat": "CPU: {{pod}}",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(container_memory_usage_bytes{namespace=\"agentical\"}) by (pod) / 1024 / 1024",
+            "legendFormat": "Memory: {{pod}} (MB)",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {"label": "Usage", "min": 0}
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Cache Performance",
+        "type": "singlestat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 28},
+        "targets": [
+          {
+            "expr": "sum(rate(agentical_redis_operations_total{status=\"hit\"}[5m])) / sum(rate(agentical_redis_operations_total[5m])) * 100",
+            "refId": "A"
+          }
+        ],
+        "valueName": "current",
+        "format": "percent",
+        "thresholds": "70,90",
+        "colorBackground": true,
+        "colorValue": false,
+        "colors": ["#d44a3a", "#e24d42", "#299c46"]
+      },
+      {
+        "id": 11,
+        "title": "Database Connections",
+        "type": "singlestat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 28},
+        "targets": [
+          {
+            "expr": "sum(agentical_database_connections{status=\"active\"})",
+            "refId": "A"
+          }
+        ],
+        "valueName": "current",
+        "format": "short",
+        "thresholds": "80,90",
+        "colorBackground": true
+      },
+      {
+        "id": 12,
+        "title": "Pod Status",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+        "targets": [
+          {
+            "expr": "kube_pod_status_phase{namespace=\"agentical\"}",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "styles": [
+          {
+            "pattern": "Value",
+            "type": "string",
+            "mappingType": 1,
+            "valueMaps": [
+              {"value": "0", "text": "Pending"},
+              {"value": "1", "text": "Running"},
+              {"value": "2", "text": "Succeeded"},
+              {"value": "3", "text": "Failed"},
+              {"value": "4", "text": "Unknown"}
+            ]
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "Recent Alerts",
+        "type": "logs",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 36},
+        "targets": [
+          {
+            "expr": "{job=\"alertmanager\"} |= \"firing\"",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": true,
+          "maxLines": 100
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "query",
+          "query": "label_values(up, environment)",
+          "current": {
+            "text": "production",
+            "value": "production"
+          },
+          "options": [],
+          "refresh": 1
+        },
+        {
+          "name": "namespace",
+          "type": "query", 
+          "query": "label_values(kube_pod_info, namespace)",
+          "current": {
+            "text": "agentical",
+            "value": "agentical"
+          },
+          "options": [],
+          "refresh": 1
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "datasource": "Prometheus",
+          "expr": "kube_pod_created{namespace=\"$namespace\"}",
+          "titleFormat": "Pod Created: {{pod}}",
+          "textFormat": "New pod {{pod}} created in namespace {{namespace}}",
+          "iconColor": "green"
+        }
+      ]
+    }
+  }
+}

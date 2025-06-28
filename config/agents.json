@@ -1,0 +1,268 @@
+{
+  "agents": {
+    "generic_agent": {
+      "name": "Generic Agent",
+      "type": "generic",
+      "description": "General-purpose agent for basic task execution",
+      "version": "1.0.0",
+      "capabilities": [
+        {
+          "type": "reasoning",
+          "enabled": true,
+          "parameters": {
+            "model": "claude-3-7-sonnet-20250219",
+            "max_tokens": 4096,
+            "temperature": 0.2
+          },
+          "priority": 8,
+          "timeout_seconds": 30.0
+        },
+        {
+          "type": "execution",
+          "enabled": true,
+          "parameters": {
+            "max_concurrent_tasks": 5,
+            "task_timeout": 300
+          },
+          "priority": 7,
+          "timeout_seconds": 300.0
+        },
+        {
+          "type": "integration",
+          "enabled": true,
+          "parameters": {
+            "mcp_enabled": true,
+            "api_enabled": true
+          },
+          "priority": 6,
+          "timeout_seconds": 60.0
+        }
+      ],
+      "max_concurrent_executions": 5,
+      "default_timeout_seconds": 300.0,
+      "memory_limit_mb": 1024,
+      "cpu_limit_percent": 80,
+      "tools": [
+        {
+          "name": "filesystem",
+          "type": "mcp",
+          "enabled": true,
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+          "timeout_seconds": 30.0,
+          "description": "File read/write operations"
+        },
+        {
+          "name": "git",
+          "type": "mcp", 
+          "enabled": true,
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-git"],
+          "timeout_seconds": 30.0,
+          "description": "Version control operations"
+        }
+      ],
+      "mcp_servers": ["filesystem", "git", "memory", "sequentialthinking"],
+      "learning_enabled": true,
+      "security_level": "standard",
+      "logging_level": "INFO",
+      "metrics_enabled": true,
+      "trace_enabled": true,
+      "author": "DevQ.ai",
+      "tags": ["general", "basic", "production"]
+    },
+    "super_agent": {
+      "name": "Super Agent",
+      "type": "super",
+      "description": "Advanced agent with enhanced capabilities and comprehensive tool access",
+      "version": "1.0.0",
+      "capabilities": [
+        {
+          "type": "reasoning",
+          "enabled": true,
+          "parameters": {
+            "model": "claude-3-7-sonnet-20250219",
+            "max_tokens": 8192,
+            "temperature": 0.1
+          },
+          "priority": 10,
+          "timeout_seconds": 60.0
+        },
+        {
+          "type": "planning",
+          "enabled": true,
+          "parameters": {
+            "max_plan_depth": 10,
+            "parallel_planning": true
+          },
+          "priority": 9,
+          "timeout_seconds": 120.0
+        },
+        {
+          "type": "execution",
+          "enabled": true,
+          "parameters": {
+            "max_concurrent_tasks": 10,
+            "task_timeout": 600
+          },
+          "priority": 8,
+          "timeout_seconds": 600.0
+        },
+        {
+          "type": "learning",
+          "enabled": true,
+          "parameters": {
+            "adaptive_learning": true,
+            "experience_retention": 90
+          },
+          "priority": 7,
+          "timeout_seconds": 30.0
+        },
+        {
+          "type": "monitoring",
+          "enabled": true,
+          "parameters": {
+            "performance_tracking": true,
+            "health_monitoring": true
+          },
+          "priority": 6,
+          "timeout_seconds": 15.0
+        },
+        {
+          "type": "integration",
+          "enabled": true,
+          "parameters": {
+            "mcp_enabled": true,
+            "api_enabled": true,
+            "external_services": true
+          },
+          "priority": 8,
+          "timeout_seconds": 60.0
+        }
+      ],
+      "max_concurrent_executions": 10,
+      "default_timeout_seconds": 600.0,
+      "memory_limit_mb": 2048,
+      "cpu_limit_percent": 90,
+      "tools": [
+        {
+          "name": "context7-mcp",
+          "type": "mcp",
+          "enabled": true,
+          "command": "python",
+          "args": ["-m", "context7_mcp.server"],
+          "cwd": "../machina/mcp/mcp-servers/context7-mcp",
+          "env": {
+            "UPSTASH_REDIS_REST_URL": "${UPSTASH_REDIS_REST_URL}",
+            "UPSTASH_REDIS_REST_TOKEN": "${UPSTASH_REDIS_REST_TOKEN}"
+          },
+          "timeout_seconds": 60.0,
+          "description": "Advanced contextual reasoning"
+        },
+        {
+          "name": "ptolemies-mcp",
+          "type": "mcp",
+          "enabled": true,
+          "command": "python",
+          "args": ["-m", "ptolemies_mcp.server"],
+          "cwd": "../ptolemies",
+          "env": {
+            "SURREALDB_URL": "${SURREALDB_URL}",
+            "SURREALDB_USERNAME": "${SURREALDB_USERNAME}",
+            "SURREALDB_PASSWORD": "${SURREALDB_PASSWORD}",
+            "SURREALDB_NAMESPACE": "${SURREALDB_NAMESPACE}",
+            "SURREALDB_DATABASE": "${SURREALDB_DATABASE}"
+          },
+          "timeout_seconds": 45.0,
+          "description": "Knowledge base integration"
+        },
+        {
+          "name": "taskmaster-ai",
+          "type": "mcp",
+          "enabled": true,
+          "command": "python",
+          "args": ["-m", "server"],
+          "cwd": "../machina/mcp/mcp-servers/task-master",
+          "env": {
+            "ANTHROPIC_API_KEY": "${ANTHROPIC_API_KEY}",
+            "MODEL": "${MODEL}"
+          },
+          "timeout_seconds": 90.0,
+          "description": "Task management and planning"
+        }
+      ],
+      "mcp_servers": [
+        "filesystem", "git", "memory", "sequentialthinking", 
+        "context7-mcp", "ptolemies-mcp", "taskmaster-ai",
+        "surrealdb-mcp", "logfire-mcp"
+      ],
+      "external_apis": {
+        "openai": "${OPENAI_API_KEY}",
+        "anthropic": "${ANTHROPIC_API_KEY}"
+      },
+      "learning_enabled": true,
+      "experience_retention_days": 90,
+      "auto_optimization": true,
+      "security_level": "strict",
+      "allowed_operations": ["read", "write", "execute", "network", "api"],
+      "resource_quotas": {
+        "max_file_size_mb": 100,
+        "max_api_calls_per_hour": 1000,
+        "max_network_requests_per_minute": 60
+      },
+      "logging_level": "DEBUG",
+      "metrics_enabled": true,
+      "trace_enabled": true,
+      "health_check_interval_seconds": 30,
+      "author": "DevQ.ai",
+      "tags": ["advanced", "comprehensive", "production", "enterprise"]
+    },
+    "development_agent": {
+      "name": "Development Agent",
+      "type": "custom",
+      "description": "Specialized agent for software development tasks",
+      "version": "1.0.0",
+      "capabilities": [
+        {
+          "type": "reasoning",
+          "enabled": true,
+          "parameters": {
+            "model": "claude-3-7-sonnet-20250219",
+            "max_tokens": 8192,
+            "temperature": 0.1,
+            "focus": "code_analysis"
+          },
+          "priority": 9,
+          "timeout_seconds": 60.0
+        },
+        {
+          "type": "execution",
+          "enabled": true,
+          "parameters": {
+            "code_execution": true,
+            "test_execution": true,
+            "build_automation": true
+          },
+          "priority": 8,
+          "timeout_seconds": 300.0
+        }
+      ],
+      "tools": [
+        {
+          "name": "github-mcp",
+          "type": "mcp",
+          "enabled": true,
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-github"],
+          "env": {
+            "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+          },
+          "description": "GitHub integration"
+        }
+      ],
+      "mcp_servers": ["filesystem", "git", "github-mcp"],
+      "security_level": "standard",
+      "tags": ["development", "coding", "specialized"]
+    }
+  }
+}

@@ -1,0 +1,448 @@
+# Infrastructure as Code Pipeline
+# Terraform deployment and management across multiple cloud providers
+
+name: Infrastructure Deployment
+
+on:
+  push:
+    branches: [main]
+    paths: ['infrastructure/**']
+  pull_request:
+    branches: [main]
+    paths: ['infrastructure/**']
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+        - plan
+        - apply
+        - destroy
+      environment:
+        description: 'Environment to target'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - development
+        - staging
+        - production
+      cloud_provider:
+        description: 'Cloud provider'
+        required: true
+        default: 'aws'
+        type: choice
+        options:
+        - aws
+        - gcp
+        - azure
+
+env:
+  TF_VERSION: '1.6.0'
+  TF_LOG: INFO
+
+jobs:
+  # Terraform validation and security scanning
+  terraform-validate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        cloud: [aws, gcp, azure]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Terraform Format Check
+      run: terraform fmt -check -recursive infrastructure/${{ matrix.cloud }}/
+
+    - name: Terraform Init
+      run: |
+        cd infrastructure/${{ matrix.cloud }}
+        terraform init -backend=false
+
+    - name: Terraform Validate
+      run: |
+        cd infrastructure/${{ matrix.cloud }}
+        terraform validate
+
+    - name: Run tfsec security scan
+      uses: aquasecurity/tfsec-action@v1.0.0
+      with:
+        working_directory: infrastructure/${{ matrix.cloud }}
+        format: sarif
+        output: tfsec-${{ matrix.cloud }}.sarif
+
+    - name: Upload security scan results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: tfsec-${{ matrix.cloud }}.sarif
+
+    - name: Run Checkov scan
+      uses: bridgecrewio/checkov-action@master
+      with:
+        directory: infrastructure/${{ matrix.cloud }}
+        framework: terraform
+        output_format: sarif
+        output_file_path: checkov-${{ matrix.cloud }}.sarif
+
+  # Cost estimation
+  cost-estimation:
+    runs-on: ubuntu-latest
+    needs: terraform-validate
+    if: github.event_name == 'pull_request'
+    
+    strategy:
+      matrix:
+        cloud: [aws, gcp, azure]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Setup Infracost
+      uses: infracost/actions/setup@v2
+      with:
+        api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+    - name: Generate Infracost cost estimate
+      run: |
+        cd infrastructure/${{ matrix.cloud }}
+        terraform init -backend=false
+        infracost breakdown --path . --format json --out-file /tmp/infracost-${{ matrix.cloud }}.json
+
+    - name: Post Infracost comment
+      run: |
+        infracost comment github --path /tmp/infracost-${{ matrix.cloud }}.json \
+          --repo $GITHUB_REPOSITORY \
+          --github-token ${{ github.token }} \
+          --pull-request ${{ github.event.pull_request.number }} \
+          --behavior new
+
+  # AWS Infrastructure
+  aws-infrastructure:
+    runs-on: ubuntu-latest
+    needs: terraform-validate
+    if: |
+      (github.event.inputs.cloud_provider == 'aws' || github.event_name != 'workflow_dispatch') &&
+      (github.event.inputs.action != 'destroy' || github.actor == 'devqai-team')
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    
+    defaults:
+      run:
+        working-directory: infrastructure/aws
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-west-2
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Terraform Init
+      run: |
+        terraform init \
+          -backend-config="bucket=agentical-terraform-state-${{ github.event.inputs.environment || 'staging' }}" \
+          -backend-config="key=agentical/${{ github.event.inputs.environment || 'staging' }}/terraform.tfstate" \
+          -backend-config="region=us-west-2"
+
+    - name: Terraform Plan
+      id: plan
+      run: |
+        terraform plan \
+          -var="environment=${{ github.event.inputs.environment || 'staging' }}" \
+          -var="aws_region=us-west-2" \
+          -out=tfplan \
+          -detailed-exitcode
+      continue-on-error: true
+
+    - name: Update Pull Request
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      env:
+        PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const output = `#### Terraform Plan (AWS) 📖\`${{ steps.plan.outcome }}\`
+          
+          <details><summary>Show Plan</summary>
+          
+          \`\`\`\n
+          ${process.env.PLAN}
+          \`\`\`
+          
+          </details>
+          
+          *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+          })
+
+    - name: Terraform Apply
+      if: |
+        github.ref == 'refs/heads/main' && 
+        (github.event.inputs.action == 'apply' || github.event_name == 'push')
+      run: terraform apply -auto-approve tfplan
+
+    - name: Terraform Destroy
+      if: github.event.inputs.action == 'destroy'
+      run: |
+        terraform destroy \
+          -var="environment=${{ github.event.inputs.environment }}" \
+          -var="aws_region=us-west-2" \
+          -auto-approve
+
+    - name: Upload Terraform state
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: terraform-state-aws-${{ github.event.inputs.environment || 'staging' }}
+        path: infrastructure/aws/terraform.tfstate*
+
+  # GCP Infrastructure
+  gcp-infrastructure:
+    runs-on: ubuntu-latest
+    needs: terraform-validate
+    if: |
+      github.event.inputs.cloud_provider == 'gcp' &&
+      (github.event.inputs.action != 'destroy' || github.actor == 'devqai-team')
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    
+    defaults:
+      run:
+        working-directory: infrastructure/gcp
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Terraform Init
+      run: |
+        terraform init \
+          -backend-config="bucket=agentical-terraform-state-gcp-${{ github.event.inputs.environment || 'staging' }}" \
+          -backend-config="prefix=agentical/${{ github.event.inputs.environment || 'staging' }}"
+
+    - name: Terraform Plan
+      id: plan
+      run: |
+        terraform plan \
+          -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+          -var="environment=${{ github.event.inputs.environment || 'staging' }}" \
+          -var="region=us-central1" \
+          -out=tfplan \
+          -detailed-exitcode
+      continue-on-error: true
+
+    - name: Terraform Apply
+      if: github.event.inputs.action == 'apply'
+      run: terraform apply -auto-approve tfplan
+
+    - name: Terraform Destroy
+      if: github.event.inputs.action == 'destroy'
+      run: |
+        terraform destroy \
+          -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+          -var="environment=${{ github.event.inputs.environment }}" \
+          -var="region=us-central1" \
+          -auto-approve
+
+  # Azure Infrastructure
+  azure-infrastructure:
+    runs-on: ubuntu-latest
+    needs: terraform-validate
+    if: |
+      github.event.inputs.cloud_provider == 'azure' &&
+      (github.event.inputs.action != 'destroy' || github.actor == 'devqai-team')
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    
+    defaults:
+      run:
+        working-directory: infrastructure/azure
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Terraform Init
+      run: |
+        terraform init \
+          -backend-config="resource_group_name=agentical-terraform-state-${{ github.event.inputs.environment || 'staging' }}" \
+          -backend-config="storage_account_name=agenticalterraform${{ github.event.inputs.environment || 'staging' }}" \
+          -backend-config="container_name=tfstate" \
+          -backend-config="key=agentical/${{ github.event.inputs.environment || 'staging' }}/terraform.tfstate"
+
+    - name: Terraform Plan
+      id: plan
+      run: |
+        terraform plan \
+          -var="environment=${{ github.event.inputs.environment || 'staging' }}" \
+          -var="location=East US" \
+          -out=tfplan \
+          -detailed-exitcode
+      continue-on-error: true
+
+    - name: Terraform Apply
+      if: github.event.inputs.action == 'apply'
+      run: terraform apply -auto-approve tfplan
+
+    - name: Terraform Destroy
+      if: github.event.inputs.action == 'destroy'
+      run: |
+        terraform destroy \
+          -var="environment=${{ github.event.inputs.environment }}" \
+          -var="location=East US" \
+          -auto-approve
+
+  # Kubernetes cluster configuration
+  configure-k8s:
+    runs-on: ubuntu-latest
+    needs: [aws-infrastructure, gcp-infrastructure, azure-infrastructure]
+    if: |
+      always() && 
+      (needs.aws-infrastructure.result == 'success' || 
+       needs.gcp-infrastructure.result == 'success' || 
+       needs.azure-infrastructure.result == 'success') &&
+      github.event.inputs.action != 'destroy'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure kubectl for AWS
+      if: needs.aws-infrastructure.result == 'success'
+      run: |
+        aws eks update-kubeconfig --name agentical-${{ github.event.inputs.environment || 'staging' }} --region us-west-2
+
+    - name: Configure kubectl for GCP
+      if: needs.gcp-infrastructure.result == 'success'
+      run: |
+        gcloud container clusters get-credentials agentical-gke-${{ github.event.inputs.environment || 'staging' }} --region us-central1
+
+    - name: Configure kubectl for Azure
+      if: needs.azure-infrastructure.result == 'success'
+      run: |
+        az aks get-credentials --resource-group agentical-rg-${{ github.event.inputs.environment || 'staging' }} --name agentical-aks-${{ github.event.inputs.environment || 'staging' }}
+
+    - name: Install cluster components
+      run: |
+        # Install cert-manager
+        kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+        
+        # Install ingress controller
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml
+        
+        # Wait for deployments
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=cert-manager -n cert-manager --timeout=300s
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ingress-nginx -n ingress-nginx --timeout=300s
+
+  # Post-deployment validation
+  validate-deployment:
+    runs-on: ubuntu-latest
+    needs: configure-k8s
+    if: needs.configure-k8s.result == 'success'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run infrastructure tests
+      run: |
+        # Add Terratest or other infrastructure tests
+        echo "Running infrastructure validation tests"
+
+    - name: Health check endpoints
+      run: |
+        # Add health check logic
+        echo "Performing health checks"
+
+    - name: Generate infrastructure report
+      run: |
+        # Generate infrastructure status report
+        echo "Generating infrastructure report"
+
+  # Notification
+  notify:
+    runs-on: ubuntu-latest
+    needs: [aws-infrastructure, gcp-infrastructure, azure-infrastructure, validate-deployment]
+    if: always()
+    
+    steps:
+    - name: Notify Slack
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#infrastructure'
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Create GitHub issue on failure
+      if: failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: 'Infrastructure Deployment Failed',
+            body: `Infrastructure deployment failed for environment: ${{ github.event.inputs.environment || 'staging' }}
+            
+            Cloud Provider: ${{ github.event.inputs.cloud_provider || 'aws' }}
+            Action: ${{ github.event.inputs.action || 'plan' }}
+            Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Please investigate and resolve the issue.`,
+            labels: ['infrastructure', 'bug', 'high-priority']
+          })

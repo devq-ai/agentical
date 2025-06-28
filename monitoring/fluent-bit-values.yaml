@@ -1,0 +1,418 @@
+# Fluent Bit Configuration for Agentical Logging
+# Centralized log collection and forwarding to multiple destinations
+
+# Image configuration
+image:
+  repository: fluent/fluent-bit
+  tag: "2.2.0"
+  pullPolicy: IfNotPresent
+
+# DaemonSet configuration
+kind: DaemonSet
+
+# Resource limits
+resources:
+  limits:
+    cpu: 200m
+    memory: 200Mi
+  requests:
+    cpu: 100m
+    memory: 100Mi
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 2020
+  labels:
+    app.kubernetes.io/name: fluent-bit
+
+# ServiceMonitor for Prometheus metrics
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  interval: 30s
+  scrapeTimeout: 10s
+  labels:
+    app.kubernetes.io/name: fluent-bit
+
+# RBAC configuration
+rbac:
+  create: true
+  nodeAccess: true
+
+# Service Account
+serviceAccount:
+  create: true
+  name: fluent-bit
+
+# Pod Security Context
+podSecurityContext:
+  fsGroup: 2000
+
+# Security Context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+
+# Tolerations for system nodes
+tolerations:
+- key: node-role.kubernetes.io/master
+  operator: Exists
+  effect: NoSchedule
+- key: node-role.kubernetes.io/control-plane
+  operator: Exists
+  effect: NoSchedule
+
+# Node selector
+nodeSelector: {}
+
+# Affinity rules
+affinity: {}
+
+# Priority class
+priorityClassName: system-node-critical
+
+# Configuration
+config:
+  # Service configuration
+  service: |
+    [SERVICE]
+        Daemon Off
+        Flush {{ .Values.flush }}
+        Log_Level {{ .Values.logLevel }}
+        Parsers_File parsers.conf
+        Parsers_File custom_parsers.conf
+        HTTP_Server On
+        HTTP_Listen 0.0.0.0
+        HTTP_Port {{ .Values.metricsPort }}
+        Health_Check On
+        storage.path /tmp/fluent-bit/flb-storage/
+        storage.sync normal
+        storage.checksum off
+        storage.backlog.mem_limit 5M
+
+  # Input configurations
+  inputs: |
+    [INPUT]
+        Name tail
+        Path /var/log/containers/*agentical*.log
+        multiline.parser cri
+        Tag agentical.*
+        Mem_Buf_Limit 50MB
+        Skip_Long_Lines On
+        Skip_Empty_Lines On
+        storage.type filesystem
+        Refresh_Interval 10
+
+    [INPUT]
+        Name tail
+        Path /var/log/containers/*surrealdb*.log
+        multiline.parser cri
+        Tag surrealdb.*
+        Mem_Buf_Limit 50MB
+        Skip_Long_Lines On
+        Skip_Empty_Lines On
+        storage.type filesystem
+
+    [INPUT]
+        Name tail
+        Path /var/log/containers/*redis*.log
+        multiline.parser cri
+        Tag redis.*
+        Mem_Buf_Limit 50MB
+        Skip_Long_Lines On
+        Skip_Empty_Lines On
+        storage.type filesystem
+
+    [INPUT]
+        Name tail
+        Path /var/log/containers/kube-system_*.log
+        multiline.parser cri
+        Tag kube-system.*
+        Mem_Buf_Limit 50MB
+        Skip_Long_Lines On
+        Skip_Empty_Lines On
+        storage.type filesystem
+
+    [INPUT]
+        Name systemd
+        Tag host.*
+        Systemd_Filter _SYSTEMD_UNIT=kubelet.service
+        Systemd_Filter _SYSTEMD_UNIT=docker.service
+        Systemd_Filter _SYSTEMD_UNIT=containerd.service
+        Read_From_Tail On
+
+  # Filter configurations
+  filters: |
+    [FILTER]
+        Name kubernetes
+        Match agentical.*
+        Kube_URL https://kubernetes.default.svc:443
+        Kube_CA_File /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix agentical.var.log.containers.
+        Merge_Log On
+        Merge_Log_Key log_processed
+        K8S-Logging.Parser On
+        K8S-Logging.Exclude Off
+        Annotations Off
+        Labels On
+
+    [FILTER]
+        Name kubernetes
+        Match surrealdb.*
+        Kube_URL https://kubernetes.default.svc:443
+        Kube_CA_File /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix surrealdb.var.log.containers.
+        Merge_Log On
+        Merge_Log_Key log_processed
+        K8S-Logging.Parser On
+        K8S-Logging.Exclude Off
+        Annotations Off
+        Labels On
+
+    [FILTER]
+        Name kubernetes
+        Match redis.*
+        Kube_URL https://kubernetes.default.svc:443
+        Kube_CA_File /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix redis.var.log.containers.
+        Merge_Log On
+        Merge_Log_Key log_processed
+        K8S-Logging.Parser On
+        K8S-Logging.Exclude Off
+        Annotations Off
+        Labels On
+
+    [FILTER]
+        Name kubernetes
+        Match kube-system.*
+        Kube_URL https://kubernetes.default.svc:443
+        Kube_CA_File /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File /var/run/secrets/kubernetes.io/serviceaccount/token
+        Kube_Tag_Prefix kube-system.var.log.containers.
+        Merge_Log On
+        Merge_Log_Key log_processed
+        K8S-Logging.Parser On
+        K8S-Logging.Exclude Off
+        Annotations Off
+        Labels On
+
+    # Parse JSON logs from Agentical applications
+    [FILTER]
+        Name parser
+        Match agentical.*
+        Key_Name log
+        Parser agentical_json
+        Reserve_Data On
+        Preserve_Key On
+
+    # Add environment and cluster information
+    [FILTER]
+        Name modify
+        Match *
+        Add cluster agentical-production
+        Add environment production
+        Add region us-west-2
+
+    # Enrich with node information
+    [FILTER]
+        Name record_modifier
+        Match *
+        Record hostname ${HOSTNAME}
+        Record node_name ${NODE_NAME}
+
+    # Filter out noisy logs
+    [FILTER]
+        Name grep
+        Match *
+        Exclude log /health|/metrics|/readiness|/liveness
+
+  # Output configurations
+  outputs: |
+    # Send to Loki for log aggregation
+    [OUTPUT]
+        Name loki
+        Match agentical.*
+        Host loki.monitoring.svc.cluster.local
+        Port 3100
+        Labels job=agentical, namespace=$kubernetes['namespace_name'], pod=$kubernetes['pod_name'], container=$kubernetes['container_name']
+        Batch_wait 1s
+        Batch_size 1048576
+        Line_format json
+        Remove_keys kubernetes,stream
+        Auto_kubernetes_labels On
+
+    [OUTPUT]
+        Name loki
+        Match surrealdb.*
+        Host loki.monitoring.svc.cluster.local
+        Port 3100
+        Labels job=surrealdb, namespace=$kubernetes['namespace_name'], pod=$kubernetes['pod_name']
+        Batch_wait 1s
+        Batch_size 1048576
+        Line_format json
+        Remove_keys kubernetes,stream
+
+    [OUTPUT]
+        Name loki
+        Match redis.*
+        Host loki.monitoring.svc.cluster.local
+        Port 3100
+        Labels job=redis, namespace=$kubernetes['namespace_name'], pod=$kubernetes['pod_name']
+        Batch_wait 1s
+        Batch_size 1048576
+        Line_format json
+        Remove_keys kubernetes,stream
+
+    # Send system logs to Loki
+    [OUTPUT]
+        Name loki
+        Match kube-system.*
+        Host loki.monitoring.svc.cluster.local
+        Port 3100
+        Labels job=kubernetes, namespace=$kubernetes['namespace_name'], pod=$kubernetes['pod_name']
+        Batch_wait 1s
+        Batch_size 1048576
+        Line_format json
+        Remove_keys kubernetes,stream
+
+    [OUTPUT]
+        Name loki
+        Match host.*
+        Host loki.monitoring.svc.cluster.local
+        Port 3100
+        Labels job=systemd, hostname=${HOSTNAME}
+        Batch_wait 1s
+        Batch_size 1048576
+        Line_format json
+
+    # Send critical logs to external systems (optional)
+    [OUTPUT]
+        Name forward
+        Match agentical.*
+        Host logfire-ingest.logfire.dev
+        Port 443
+        tls On
+        tls.verify On
+        Shared_Key your-logfire-key
+
+    # Send to S3 for long-term storage (optional)
+    [OUTPUT]
+        Name s3
+        Match *
+        bucket agentical-logs-production
+        region us-west-2
+        total_file_size 50M
+        s3_key_format /logs/year=%Y/month=%m/day=%d/hour=%H/%Y%m%d-%H%M%S-$UUID.gz
+        use_put_object On
+        compression gzip
+        storage_class STANDARD_IA
+
+  # Custom parsers
+  customParsers: |
+    [PARSER]
+        Name agentical_json
+        Format json
+        Time_Key timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+        Time_Keep On
+
+    [PARSER]
+        Name surrealdb_log
+        Format regex
+        Regex ^(?<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)\s+(?<level>\w+)\s+(?<message>.*)$
+        Time_Key timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+
+    [PARSER]
+        Name redis_log
+        Format regex
+        Regex ^(?<pid>\d+):(?<role>\w+)\s+(?<timestamp>\d{2}\s+\w{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s+(?<level>\w+)\s+(?<message>.*)$
+        Time_Key timestamp
+        Time_Format %d %b %Y %H:%M:%S.%L
+
+# Environment variables
+env:
+- name: FLUENT_CONF
+  value: /fluent-bit/etc/fluent-bit.conf
+- name: HOSTNAME
+  valueFrom:
+    fieldRef:
+      fieldPath: spec.nodeName
+- name: NODE_NAME
+  valueFrom:
+    fieldRef:
+      fieldPath: spec.nodeName
+
+# Volume mounts
+volumeMounts:
+- name: config
+  mountPath: /fluent-bit/etc
+- name: varlog
+  mountPath: /var/log
+  readOnly: true
+- name: varlibdockercontainers
+  mountPath: /var/lib/docker/containers
+  readOnly: true
+- name: etcmachineid
+  mountPath: /etc/machine-id
+  readOnly: true
+
+# Additional volumes
+daemonSetVolumes:
+- name: varlog
+  hostPath:
+    path: /var/log
+- name: varlibdockercontainers
+  hostPath:
+    path: /var/lib/docker/containers
+- name: etcmachineid
+  hostPath:
+    path: /etc/machine-id
+    type: File
+
+# Fluent Bit configuration values
+flush: 5
+logLevel: info
+metricsPort: 2020
+
+# Loki push API configuration
+loki:
+  serviceName: loki
+  servicePort: 3100
+  serviceScheme: http
+  tenant_id: ""
+
+# Buffer configuration
+buffer:
+  enable: true
+  storage: filesystem
+  path: /tmp/fluent-bit/buffer
+
+# Network configuration
+networkPolicy:
+  enabled: true
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
