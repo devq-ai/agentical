@@ -48,6 +48,9 @@ from ...db.models.workflow import (
 from ...db.repositories.workflow import AsyncWorkflowRepository
 from .execution_context import ExecutionContext
 from .step_executor import StepExecutor
+from .multi_agent_coordinator import MultiAgentCoordinator, CoordinationStrategy
+from .state_manager import WorkflowStateManager, CheckpointLevel
+from .performance_monitor import PerformanceMonitor
 
 
 class WorkflowEngine:
@@ -86,6 +89,32 @@ class WorkflowEngine:
         # Step executor for individual step processing
         self.step_executor = StepExecutor(db_session)
 
+        # Multi-agent coordinator for complex orchestration
+        from ...agents.agent_registry import get_agent_registry
+        agent_registry = get_agent_registry()
+        self.multi_agent_coordinator = MultiAgentCoordinator(
+            db_session=db_session,
+            agent_registry=agent_registry,
+            max_concurrent_agents=max_concurrent_workflows * 2
+        )
+
+        # State manager for persistence and recovery
+        self.state_manager = WorkflowStateManager(
+            db_session=db_session,
+            checkpoint_interval=60,  # 1 minute
+            max_checkpoints_per_execution=100,
+            enable_compression=True
+        )
+
+        # Performance monitor for metrics and optimization
+        self.performance_monitor = PerformanceMonitor(
+            db_session=db_session,
+            monitoring_interval=30,
+            metric_retention_hours=24,
+            enable_system_monitoring=enable_monitoring,
+            enable_workflow_profiling=enable_monitoring
+        )
+
         # Workflow type handlers
         self._workflow_handlers: Dict[WorkflowType, Callable] = {}
         self._register_default_handlers()
@@ -96,8 +125,18 @@ class WorkflowEngine:
             timeout_minutes=default_timeout_minutes
         )
 
+    async def start(self) -> None:
+        """Start the workflow engine and all subsystems."""
+        await self.multi_agent_coordinator.start()
+        await self.performance_monitor.start()
+        logfire.info("Workflow engine started")
+
     def _register_default_handlers(self) -> None:
         """Register default workflow type handlers."""
+        self._workflow_handlers[WorkflowType.MULTI_AGENT] = self._handle_multi_agent_workflow
+        self._workflow_handlers[WorkflowType.SEQUENTIAL] = self._handle_sequential_workflow
+        self._workflow_handlers[WorkflowType.PARALLEL] = self._handle_parallel_workflow
+        self._workflow_handlers[WorkflowType.PIPELINE] = self._handle_pipeline_workflow
         # Will be populated when we implement standard workflow types
         pass
 
@@ -175,6 +214,12 @@ class WorkflowEngine:
             execution_id = execution.execution_id
             self._active_executions[execution_id] = execution
             self._execution_contexts[execution_id] = context
+
+            # Start state management
+            await self.state_manager.start_managing_execution(context)
+
+            # Start performance profiling
+            self.performance_monitor.start_workflow_profiling(context)
 
             # Start execution task
             task = asyncio.create_task(
@@ -262,7 +307,14 @@ class WorkflowEngine:
     async def _start_execution(self, execution: WorkflowExecution) -> None:
         """Start workflow execution and update status."""
         execution.start_execution()
-        await self.workflow_repo.update_execution_state(
+        await self.workflow_repo.update_execution(execution)
+
+        # Record execution metrics
+        self.performance_monitor.record_metric(
+            "active_executions",
+            len(self._active_executions),
+            tags={"workflow_id": str(context.workflow.id)}
+        )
             execution.id,
             ExecutionStatus.RUNNING,
             {}
@@ -347,8 +399,16 @@ class WorkflowEngine:
                 task.cancel()
 
             # Update execution status
-            execution.cancel_execution()
-            await self.workflow_repo.update_execution_state(
+            execution.complete_execution()
+            await self.workflow_repo.update_execution(execution)
+
+            # Record completion metrics
+            duration = execution.duration.total_seconds() if execution.duration else 0
+            self.performance_monitor.record_metric(
+                "workflow_execution_duration",
+                duration,
+                tags={"workflow_id": str(context.workflow.id), "execution_id": execution.execution_id}
+            )
                 execution.id,
                 ExecutionStatus.CANCELLED,
                 {}
@@ -464,7 +524,267 @@ class WorkflowEngine:
                 return_exceptions=True
             )
 
-        logfire.info("Workflow engine shutdown complete")
+        logfire.info("Workflow engine shutdown completed")
+
+    async def _handle_multi_agent_workflow(self, context: ExecutionContext) -> Dict[str, Any]:
+    """Handle multi-agent workflow execution."""
+    with logfire.span("Multi-agent workflow", execution_id=context.execution.execution_id):
+        results = {}
+
+        for step in context.workflow.steps:
+            if not context.can_execute_step(step):
+                continue
+
+            # Update progress metrics
+            self.performance_monitor.update_workflow_progress(context)
+
+            # Determine coordination strategy from step config
+            step_config = step.configuration or {}
+            strategy_name = step_config.get("coordination_strategy", "parallel")
+            strategy = CoordinationStrategy(strategy_name)
+
+            # Execute step with multi-agent coordination
+            step_result = await self.multi_agent_coordinator.execute_multi_agent_step(
+                step=step,
+                context=context,
+                strategy=strategy
+            )
+
+            # Store result and mark step as completed
+            context.set_step_result(step.id, step_result)
+            context.mark_step_completed(step.id)
+            results[f"step_{step.id}"] = step_result
+
+            # Update context variables with step result
+            if isinstance(step_result, dict):
+                context.variables.update(step_result)
+
+        return results
+
+    async def _handle_sequential_workflow(self, context: ExecutionContext) -> Dict[str, Any]:
+    """Handle sequential workflow execution."""
+    return await self._execute_steps_sequential(context)
+
+    async def _handle_parallel_workflow(self, context: ExecutionContext) -> Dict[str, Any]:
+    """Handle parallel workflow execution."""
+    with logfire.span("Parallel workflow", execution_id=context.execution.execution_id):
+        # Execute all independent steps in parallel
+        tasks = []
+        step_map = {}
+
+        for step in context.workflow.steps:
+            if context.can_execute_step(step):
+                task = asyncio.create_task(self._execute_single_step(step, context))
+                tasks.append(task)
+                step_map[task] = step
+
+        # Wait for all parallel steps to complete
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results
+        workflow_results = {}
+        for task, result in zip(tasks, results):
+            step = step_map[task]
+
+            if isinstance(result, Exception):
+                context.mark_step_failed(step.id, str(result))
+                logfire.error("Parallel step failed", step_id=step.id, error=str(result))
+            else:
+                context.set_step_result(step.id, result)
+                context.mark_step_completed(step.id)
+                workflow_results[f"step_{step.id}"] = result
+
+        return workflow_results
+
+    async def _handle_pipeline_workflow(self, context: ExecutionContext) -> Dict[str, Any]:
+    """Handle pipeline workflow execution."""
+    with logfire.span("Pipeline workflow", execution_id=context.execution.execution_id):
+        # Execute steps in pipeline mode with multi-agent coordination
+        pipeline_result = await self.multi_agent_coordinator.execute_multi_agent_step(
+            step=context.workflow.steps[0] if context.workflow.steps else None,
+            context=context,
+            strategy=CoordinationStrategy.PIPELINE
+        )
+
+        return {"pipeline_result": pipeline_result}
+
+    async def _execute_steps_sequential(self, context: ExecutionContext) -> Dict[str, Any]:
+    """Execute workflow steps sequentially."""
+    results = {}
+
+    for step in context.workflow.steps:
+        if not context.can_execute_step(step):
+            context.mark_step_skipped(step.id, "Dependencies not met")
+            continue
+
+        step_result = await self._execute_single_step(step, context)
+        context.set_step_result(step.id, step_result)
+        context.mark_step_completed(step.id)
+        results[f"step_{step.id}"] = step_result
+
+        # Update context variables
+        if isinstance(step_result, dict):
+            context.variables.update(step_result)
+
+    return results
+
+    async def _execute_single_step(self, step: WorkflowStep, context: ExecutionContext) -> Any:
+    """Execute a single workflow step."""
+    with logfire.span("Step execution", step_id=step.id, step_type=step.step_type.value):
+        step_config = step.configuration or {}
+
+        # Check if step requires multi-agent coordination
+        requires_multi_agent = step_config.get("multi_agent", False) or step.step_type == StepType.AGENT_TASK
+
+        if requires_multi_agent:
+            # Use multi-agent coordinator
+            strategy_name = step_config.get("coordination_strategy", "parallel")
+            strategy = CoordinationStrategy(strategy_name)
+
+            return await self.multi_agent_coordinator.execute_multi_agent_step(
+                step=step,
+                context=context,
+                strategy=strategy
+            )
+        else:
+            # Use step executor for single-agent or non-agent steps
+            return await self.step_executor.execute_step(step, context)
+
+    async def pause_execution(self, execution_id: str) -> bool:
+        """Pause a workflow execution with state checkpoint."""
+        if execution_id not in self._execution_contexts:
+            return False
+
+        context = self._execution_contexts[execution_id]
+
+        # Create checkpoint before pausing
+        await self.state_manager.create_checkpoint(
+            context,
+            checkpoint_level=CheckpointLevel.STANDARD,
+            trigger="pause_execution"
+        )
+
+        # Pause the execution
+        context.pause()
+
+        # Update database
+        execution = self._active_executions[execution_id]
+        execution.pause_execution()
+        await self.workflow_repo.update_execution(execution)
+
+        logfire.info("Workflow execution paused", execution_id=execution_id)
+        return True
+
+    async def resume_execution(self, execution_id: str) -> bool:
+        """Resume a paused workflow execution."""
+        if execution_id not in self._execution_contexts:
+            return False
+
+        context = self._execution_contexts[execution_id]
+
+        if not context.is_paused:
+            return False
+
+        # Resume the execution
+        context.resume()
+
+        # Update database
+        execution = self._active_executions[execution_id]
+        execution.resume_execution()
+        await self.workflow_repo.update_execution(execution)
+
+        # Create checkpoint after resuming
+        await self.state_manager.create_checkpoint(
+            context,
+            checkpoint_level=CheckpointLevel.STANDARD,
+            trigger="resume_execution"
+        )
+
+        logfire.info("Workflow execution resumed", execution_id=execution_id)
+        return True
+
+    async def restore_execution(
+        self,
+        execution_id: str,
+        checkpoint_id: Optional[str] = None
+    ) -> bool:
+        """Restore a workflow execution from a checkpoint."""
+        try:
+            # Restore context from checkpoint
+            context = await self.state_manager.restore_execution(
+                execution_id, checkpoint_id
+            )
+
+            # Resume execution from restored state
+            self._execution_contexts[execution_id] = context
+
+            # Restart execution task
+            task = asyncio.create_task(
+                self._execute_workflow_async(context)
+            )
+            self._execution_tasks[execution_id] = task
+
+            logfire.info(
+                "Workflow execution restored",
+                execution_id=execution_id,
+                checkpoint_id=checkpoint_id
+            )
+            return True
+
+        except Exception as e:
+            logfire.error(
+                "Failed to restore execution",
+                execution_id=execution_id,
+                error=str(e)
+            )
+            return False
+
+    def get_coordination_metrics(self) -> Dict[str, Any]:
+        """Get multi-agent coordination metrics."""
+        return self.multi_agent_coordinator.get_coordination_metrics()
+
+    def get_active_coordination_groups(self) -> Dict[str, Dict[str, Any]]:
+        """Get active coordination groups."""
+        return self.multi_agent_coordinator.get_active_coordination_groups()
+
+    async def get_state_metrics(self) -> Dict[str, Any]:
+        """Get workflow state management metrics."""
+        return await self.state_manager.get_state_metrics()
+
+    async def get_performance_metrics(self) -> Dict[str, Any]:
+        """Get comprehensive performance metrics."""
+        return {
+            "system_health": self.performance_monitor.get_system_health_summary(),
+            "coordination_metrics": self.get_coordination_metrics(),
+            "state_metrics": await self.get_state_metrics(),
+            "recommendations": self.performance_monitor.get_performance_recommendations()
+        }
+
+    async def create_manual_checkpoint(
+        self,
+        execution_id: str,
+        checkpoint_level: CheckpointLevel = CheckpointLevel.STANDARD
+    ) -> bool:
+        """Create a manual checkpoint for an execution."""
+        if execution_id not in self._execution_contexts:
+            return False
+
+        context = self._execution_contexts[execution_id]
+
+        try:
+            await self.state_manager.create_checkpoint(
+                context,
+                checkpoint_level=checkpoint_level,
+                trigger="manual"
+            )
+            return True
+        except Exception as e:
+            logfire.error(
+                "Failed to create manual checkpoint",
+                execution_id=execution_id,
+                error=str(e)
+            )
+            return False
 
 
 class WorkflowEngineFactory:
