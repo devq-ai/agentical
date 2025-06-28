@@ -1,6 +1,6 @@
-# Agentical Documentation & Status Page
+# Agentical Documentation
 
-This directory contains the documentation and status page for the Agentical AI Agent Framework.
+This directory contains comprehensive documentation for the Agentical AI Agent Framework, organized by category for easy navigation.
 
 ## 📊 Live Status Page
 
@@ -8,11 +8,29 @@ The Agentical system status is automatically updated and deployed to GitHub Page
 
 **🔗 [Live Status Dashboard](https://devq-ai.github.io/agentical/)**
 
-## 📋 Contents
+## 📁 Documentation Structure
 
-- `status.json` - Real-time system status data (auto-generated)
-- `index.html` - Status dashboard webpage (auto-generated)
-- `README.md` - This documentation file
+### **📋 Status & Monitoring** (`status/`)
+- `GITHUB_PAGES_SETUP.md` - Complete GitHub Pages setup guide
+- `STATUS_PAGE_SUMMARY.md` - Machina-style JSON status system overview  
+- `LOCAL_PREVIEW_GUIDE.md` - Local development and preview options
+- `status.json` - Live system status data (auto-generated)
+
+### **🏗️ Implementation Guides** (`implementation/`)
+- `ADVANCED_AGENT_ECOSYSTEM_IMPLEMENTATION.md` - Agent system architecture
+- `WORKFLOW_ENGINE_CORE_IMPLEMENTATION.md` - Workflow orchestration engine
+- `CICD_INTEGRATION_IMPLEMENTATION_SUMMARY.md` - CI/CD platform integration
+- `IDE_INTEGRATION_IMPLEMENTATION_SUMMARY.md` - VS Code extension development
+- `CODEAGENT_IMPLEMENTATION_SUMMARY.md` - Code agent implementation
+- `DEVOPSAGENT_IMPLEMENTATION_SUMMARY.md` - DevOps agent implementation
+- `GITHUBAGENT_IMPLEMENTATION_SUMMARY.md` - GitHub agent implementation
+
+### **📈 Project Information** (`project/`)
+- `PROJECT_STATUS_FINAL_1.0.md` - Agentical 1.0 completion status
+- `PROJECT_STATUS_CURRENT.md` - Current development status
+- `AGENTICAL_2.0_ROADMAP.md` - Future development roadmap
+- `AGENTICAL_CAPABILITIES.md` - Complete framework capabilities
+- `PLAYBOOK_STATUS_UPDATE.md` - Playbook system status
 
 ## 🤖 Automated Status Generation
 
@@ -24,13 +42,13 @@ To manually generate the status report:
 
 ```bash
 # Generate and save to docs/status.json
-python generate_agentical_status.py --save docs/status.json
+python scripts/generate_agentical_status.py --save docs/status.json
 
 # Print to console
-python generate_agentical_status.py --print
+python scripts/generate_agentical_status.py --print
 
 # Save to custom location
-python generate_agentical_status.py --output /path/to/custom/status.json
+python scripts/generate_agentical_status.py --output /path/to/custom/status.json
 ```
 
 ## 📈 Status Data Structure
@@ -189,12 +207,27 @@ The status page provides real-time insights into:
 - **System Quality**: 95% test coverage maintenance
 - **Production Readiness**: 85% overall completion
 
-## 📚 Related Documentation
+## 📚 Quick Navigation
 
-- [Agentical Framework Documentation](../README.md)
-- [Agent Implementation Guide](../ADVANCED_AGENT_ECOSYSTEM_IMPLEMENTATION.md)
-- [Workflow Engine Documentation](../WORKFLOW_ENGINE_CORE_IMPLEMENTATION.md)
-- [Project Status Reports](../PROJECT_STATUS_FINAL_1.0.md)
+### **🚀 Getting Started**
+- [Main README](../README.md) - Framework overview and quick start
+- [GitHub Pages Setup](status/GITHUB_PAGES_SETUP.md) - Deploy your status page
+- [Local Preview Guide](status/LOCAL_PREVIEW_GUIDE.md) - Test locally first
+
+### **🏗️ Development Guides**
+- [Agent Implementation](implementation/ADVANCED_AGENT_ECOSYSTEM_IMPLEMENTATION.md) - Build custom agents
+- [Workflow Engine](implementation/WORKFLOW_ENGINE_CORE_IMPLEMENTATION.md) - Orchestration system
+- [CI/CD Integration](implementation/CICD_INTEGRATION_IMPLEMENTATION_SUMMARY.md) - Automate deployments
+
+### **📈 Project Status**
+- [Agentical 1.0 Status](project/PROJECT_STATUS_FINAL_1.0.md) - Current completion (85%)
+- [Future Roadmap](project/AGENTICAL_2.0_ROADMAP.md) - Agentical 2.0 plans
+- [Live Status Page](https://devq-ai.github.io/agentical/) - Real-time system status
+
+### **🔧 Development Tools**
+- [Setup Scripts](../scripts/) - Automation and utilities
+- [Configuration](../config/) - MCP servers and settings
+- [Docker Deployment](../docker/) - Container orchestration
 
 ---
 

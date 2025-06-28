@@ -130,8 +130,8 @@ generate_status_report() {
 
     cd "$PROJECT_ROOT"
 
-    if [ -f "generate_agentical_status.py" ]; then
-        if python3 generate_agentical_status.py --save docs/status.json; then
+    if [ -f "scripts/generate_agentical_status.py" ]; then
+        if python3 scripts/generate_agentical_status.py --save docs/status.json; then
             print_success "Status report generated successfully"
         else
             print_error "Failed to generate status report"

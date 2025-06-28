@@ -20,7 +20,7 @@ from pathlib import Path
 
 def generate_status_data(project_root):
     """Generate fresh status data."""
-    generator_script = project_root / "generate_agentical_status.py"
+    generator_script = project_root / "scripts" / "generate_agentical_status.py"
 
     if not generator_script.exists():
         raise FileNotFoundError("Status generator script not found")

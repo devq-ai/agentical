@@ -70,8 +70,32 @@ docker-compose up -d
 
 ## 📁 **Repository Structure**
 
+### **🗂️ Root Directory (Essential Files Only)**
 ```
 agentical/
+├── .env.example                  # Environment configuration template
+├── .gitignore                    # Git ignore patterns
+├── .rules                        # DevQ.ai development rules
+├── __init__.py                   # Python package initialization
+├── CHANGELOG.md                  # Version history and changes
+├── CLAUDE.md                     # Claude AI integration documentation
+├── CONFIG.md                     # Configuration documentation
+├── CONTRIBUTING.md               # Contribution guidelines
+├── LICENSE.md                    # MIT license
+├── README.md                     # This file
+├── alembic.ini                   # Database migration configuration
+├── main.py                       # FastAPI application entry point
+├── pyproject.toml                # Python project configuration
+├── pytest.ini                    # Test configuration
+└── requirements.txt              # Python dependencies
+```
+
+### **🏗️ Organized Directory Structure**
+```
+agentical/
+├── 📁 .claude/                   # Claude AI configuration
+├── 📁 .github/                   # GitHub Actions workflows
+├── 📁 .logfire/                  # Logfire observability credentials
 ├── 📁 agents/                    # AI Agent Implementations
 │   ├── types/                    # Specialized agent types
 │   ├── agent_registry.py         # Agent discovery and management
@@ -80,14 +104,42 @@ agentical/
 ├── 📁 api/                       # FastAPI REST API
 │   └── v1/endpoints/             # API endpoint implementations
 │
+├── 📁 config/                    # Configuration Files
+│   └── mcp-servers.json          # MCP server configuration
+│
+├── 📁 docker/                    # Docker Configuration
+│   ├── Dockerfile                # Container build instructions
+│   ├── docker-compose.yml        # Local development
+│   ├── docker-compose.prod.yml   # Production deployment
+│   └── docker-entrypoint.sh      # Container startup script
+│
+├── 📁 docs/                      # Documentation
+│   ├── implementation/           # Implementation guides
+│   │   ├── ADVANCED_AGENT_ECOSYSTEM_IMPLEMENTATION.md
+│   │   ├── WORKFLOW_ENGINE_CORE_IMPLEMENTATION.md
+│   │   └── ...
+│   ├── project/                  # Project documentation
+│   │   ├── PROJECT_STATUS_FINAL_1.0.md
+│   │   ├── AGENTICAL_2.0_ROADMAP.md
+│   │   └── ...
+│   ├── status/                   # Status page documentation
+│   │   ├── GITHUB_PAGES_SETUP.md
+│   │   ├── STATUS_PAGE_SUMMARY.md
+│   │   └── LOCAL_PREVIEW_GUIDE.md
+│   ├── README.md                 # Documentation index
+│   └── status.json               # Generated status data
+│
+├── 📁 scripts/                   # Utility Scripts
+│   ├── generate_agentical_status.py  # Status page generator
+│   ├── setup-github-pages.sh     # GitHub Pages setup
+│   ├── serve-status-local.py     # Local development server
+│   ├── create-local-preview.py   # Static preview generator
+│   └── verify-status-setup.py    # Setup verification
+│
 ├── 📁 workflows/                 # Workflow Engine & Orchestration
 │   ├── engine/                   # Core workflow execution engine
 │   ├── manager.py                # Workflow lifecycle management
 │   └── registry.py               # Workflow discovery
-│
-├── 📁 integrations/              # Platform Integrations
-│   ├── vscode/                   # VS Code extension
-│   └── cicd/                     # CI/CD platform integrations
 │
 ├── 📁 core/                      # Core Framework Components
 │   ├── exceptions.py             # Error handling

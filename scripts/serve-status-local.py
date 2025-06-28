@@ -89,7 +89,7 @@ class AgenticalStatusHandler(http.server.SimpleHTTPRequestHandler):
     def generate_fresh_status(self):
         """Generate fresh status data using the status generator."""
 
-        generator_script = self.project_root / "generate_agentical_status.py"
+        generator_script = self.project_root / "scripts" / "generate_agentical_status.py"
 
         if not generator_script.exists():
             raise FileNotFoundError("Status generator script not found")

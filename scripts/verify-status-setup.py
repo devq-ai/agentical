@@ -98,10 +98,10 @@ class StatusSetupVerifier:
         self.log("Checking required files", "HEADER")
 
         required_files = [
-            ("generate_agentical_status.py", "Status generator script"),
+            ("scripts/generate_agentical_status.py", "Status generator script"),
             (".github/workflows/deploy-status.yml", "GitHub Actions workflow"),
             ("scripts/setup-github-pages.sh", "Setup script"),
-            ("GITHUB_PAGES_SETUP.md", "Setup documentation")
+            ("docs/status/GITHUB_PAGES_SETUP.md", "Setup documentation")
         ]
 
         all_good = True
@@ -116,7 +116,7 @@ class StatusSetupVerifier:
         """Test the status generation script."""
         self.log("Testing status generation", "HEADER")
 
-        generator_script = self.project_root / "generate_agentical_status.py"
+        generator_script = self.project_root / "scripts/generate_agentical_status.py"
 
         if not generator_script.exists():
             self.log("Status generator script not found", "ERROR")

@@ -42,7 +42,7 @@ jobs:
 
       - name: Generate status report
         run: |
-          python generate_agentical_status.py --save docs/status.json
+          python scripts/generate_agentical_status.py --save docs/status.json
 
       - name: Create status HTML page
         run: |
