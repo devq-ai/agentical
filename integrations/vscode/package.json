@@ -1,0 +1,417 @@
+{
+  "name": "agentical-vscode",
+  "displayName": "Agentical AI Agent Framework",
+  "description": "VS Code integration for the Agentical AI Agent Framework - multi-agent workflows, code generation, and intelligent automation",
+  "version": "1.0.0",
+  "publisher": "devq-ai",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devq-ai/agentical"
+  },
+  "homepage": "https://agentical.ai",
+  "bugs": {
+    "url": "https://github.com/devq-ai/agentical/issues"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "AI",
+    "Machine Learning",
+    "Snippets",
+    "Formatters",
+    "Linters",
+    "Debuggers",
+    "Testing",
+    "Other"
+  ],
+  "keywords": [
+    "agentical",
+    "ai",
+    "agents",
+    "automation",
+    "workflows",
+    "devops",
+    "code-generation",
+    "multi-agent",
+    "orchestration",
+    "fastapi",
+    "logfire"
+  ],
+  "activationEvents": [
+    "onCommand:agentical.connect",
+    "onCommand:agentical.createPlaybook",
+    "onCommand:agentical.executeWorkflow",
+    "onLanguage:python",
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:yaml",
+    "onLanguage:json",
+    "workspaceContains:**/.agentical.json",
+    "workspaceContains:**/agentical.config.json"
+  ],
+  "main": "./out/extension.js",
+  "icon": "resources/agentical-icon.png",
+  "contributes": {
+    "commands": [
+      {
+        "command": "agentical.connect",
+        "title": "Connect to Agentical Server",
+        "category": "Agentical",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "agentical.disconnect",
+        "title": "Disconnect from Agentical Server",
+        "category": "Agentical",
+        "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "agentical.createPlaybook",
+        "title": "Create New Playbook",
+        "category": "Agentical",
+        "icon": "$(file-add)"
+      },
+      {
+        "command": "agentical.executeWorkflow",
+        "title": "Execute Workflow",
+        "category": "Agentical",
+        "icon": "$(play)"
+      },
+      {
+        "command": "agentical.generateCode",
+        "title": "Generate Code with AI",
+        "category": "Agentical",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "agentical.reviewCode",
+        "title": "AI Code Review",
+        "category": "Agentical",
+        "icon": "$(search-view-icon)"
+      },
+      {
+        "command": "agentical.optimizeCode",
+        "title": "Optimize Code",
+        "category": "Agentical",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "agentical.generateTests",
+        "title": "Generate Unit Tests",
+        "category": "Agentical",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "agentical.deployApplication",
+        "title": "Deploy with DevOps Agent",
+        "category": "Agentical",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "agentical.manageRepository",
+        "title": "GitHub Repository Management",
+        "category": "Agentical",
+        "icon": "$(github)"
+      },
+      {
+        "command": "agentical.researchTopic",
+        "title": "Research Topic",
+        "category": "Agentical",
+        "icon": "$(search)"
+      },
+      {
+        "command": "agentical.uxAnalysis",
+        "title": "UX Analysis",
+        "category": "Agentical",
+        "icon": "$(device-mobile)"
+      },
+      {
+        "command": "agentical.showAgentPool",
+        "title": "Show Agent Pool",
+        "category": "Agentical",
+        "icon": "$(organization)"
+      },
+      {
+        "command": "agentical.showWorkflowHistory",
+        "title": "Show Workflow History",
+        "category": "Agentical",
+        "icon": "$(history)"
+      },
+      {
+        "command": "agentical.showSystemMetrics",
+        "title": "Show System Metrics",
+        "category": "Agentical",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "agentical.openDashboard",
+        "title": "Open Agentical Dashboard",
+        "category": "Agentical",
+        "icon": "$(dashboard)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "agentical.connect",
+          "when": "!agentical.connected"
+        },
+        {
+          "command": "agentical.disconnect",
+          "when": "agentical.connected"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "agentical.generateCode",
+          "when": "editorHasSelection && agentical.connected",
+          "group": "agentical@1"
+        },
+        {
+          "command": "agentical.reviewCode",
+          "when": "editorHasSelection && agentical.connected",
+          "group": "agentical@2"
+        },
+        {
+          "command": "agentical.optimizeCode",
+          "when": "editorHasSelection && agentical.connected",
+          "group": "agentical@3"
+        },
+        {
+          "command": "agentical.generateTests",
+          "when": "editorHasSelection && agentical.connected",
+          "group": "agentical@4"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "agentical.createPlaybook",
+          "when": "explorerResourceIsFolder && agentical.connected",
+          "group": "agentical@1"
+        }
+      ]
+    },
+    "views": {
+      "agentical": [
+        {
+          "id": "agentical-agents",
+          "name": "Agent Pool",
+          "when": "agentical.connected"
+        },
+        {
+          "id": "agentical-workflows",
+          "name": "Active Workflows",
+          "when": "agentical.connected"
+        },
+        {
+          "id": "agentical-history",
+          "name": "Execution History",
+          "when": "agentical.connected"
+        },
+        {
+          "id": "agentical-metrics",
+          "name": "System Metrics",
+          "when": "agentical.connected"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "agentical",
+          "title": "Agentical",
+          "icon": "$(organization)"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Agentical",
+      "properties": {
+        "agentical.server.url": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "Agentical server URL"
+        },
+        "agentical.server.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for Agentical server authentication"
+        },
+        "agentical.auto.connect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically connect to Agentical server on startup"
+        },
+        "agentical.code.autoReview": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable automatic code review on save"
+        },
+        "agentical.workflows.autoExecute": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable automatic workflow execution"
+        },
+        "agentical.notifications.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Agentical notifications"
+        },
+        "agentical.logging.level": {
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error"],
+          "default": "info",
+          "description": "Logging level for Agentical extension"
+        },
+        "agentical.agents.preferred": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["code_agent", "devops_agent", "github_agent"],
+          "description": "Preferred agents for quick access"
+        },
+        "agentical.ui.theme": {
+          "type": "string",
+          "enum": ["auto", "light", "dark"],
+          "default": "auto",
+          "description": "UI theme for Agentical panels"
+        }
+      }
+    },
+    "languages": [
+      {
+        "id": "agentical-playbook",
+        "aliases": ["Agentical Playbook", "playbook"],
+        "extensions": [".agentical", ".playbook"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "agentical-playbook",
+        "scopeName": "source.agentical-playbook",
+        "path": "./syntaxes/agentical-playbook.tmGrammar.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "python",
+        "path": "./snippets/python.json"
+      },
+      {
+        "language": "javascript",
+        "path": "./snippets/javascript.json"
+      },
+      {
+        "language": "typescript",
+        "path": "./snippets/typescript.json"
+      },
+      {
+        "language": "agentical-playbook",
+        "path": "./snippets/playbook.json"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "agentical.generateCode",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "agentical.reviewCode",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "agentical.executeWorkflow",
+        "key": "ctrl+shift+x",
+        "mac": "cmd+shift+x"
+      },
+      {
+        "command": "agentical.openDashboard",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d"
+      }
+    ],
+    "taskDefinitions": [
+      {
+        "type": "agentical",
+        "required": ["task"],
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "The Agentical task to execute"
+          },
+          "agent": {
+            "type": "string",
+            "description": "Specific agent to use for the task"
+          },
+          "workflow": {
+            "type": "string",
+            "description": "Workflow to execute"
+          },
+          "config": {
+            "type": "object",
+            "description": "Task configuration"
+          }
+        }
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "agentical",
+        "owner": "agentical",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^5.59.8",
+    "@typescript-eslint/parser": "^5.59.8",
+    "eslint": "^8.41.0",
+    "typescript": "^5.1.3",
+    "@vscode/test-electron": "^2.3.2",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "axios": "^1.4.0",
+    "ws": "^8.13.0",
+    "yaml": "^2.3.1"
+  },
+  "extensionDependencies": [
+    "ms-python.python",
+    "bradlc.vscode-tailwindcss"
+  ],
+  "badges": [
+    {
+      "url": "https://img.shields.io/badge/Agentical-AI%20Framework-blue",
+      "href": "https://agentical.ai",
+      "description": "Agentical AI Framework"
+    }
+  ]
+}
