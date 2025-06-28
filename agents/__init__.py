@@ -40,6 +40,7 @@ from .codifier_agent import CodifierAgent
 from .io_agent import IOAgent
 from .playbook_agent import PlaybookAgent
 from .super_agent import SuperAgent
+from .code_agent import CodeAgent
 
 # Re-export for convenience
 agent_registry = get_agent_registry()
@@ -66,6 +67,7 @@ __all__ = [
     "IOAgent",
     "PlaybookAgent",
     "SuperAgent",
+    "CodeAgent",
 
     # Registry
     "AgentRegistry",

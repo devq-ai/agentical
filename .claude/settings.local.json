@@ -42,7 +42,8 @@
       "Bash(task-master:*)",
       "Bash(TASKMASTER_WORKING_DIR=/Users/dionedge/devqai /Users/dionedge/.nvm/versions/node/v18.20.5/bin/task-master status)",
       "Bash(pip install:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(PYTHONPATH=. python -m pytest tests/ --collect-only)"
     ],
     "deny": []
   }

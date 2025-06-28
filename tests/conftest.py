@@ -738,3 +738,509 @@ def test_metrics_collector():
     })()
 
     return collector
+
+
+# ================================
+# Agent Pool Testing Fixtures
+# ================================
+
+@pytest.fixture
+def mock_agent_pool_discovery_service():
+    """Create mock agent pool discovery service."""
+    from agentical.agents.pool_discovery import AgentPoolDiscoveryService
+
+    service = Mock(spec=AgentPoolDiscoveryService)
+    service.initialize = AsyncMock(return_value=True)
+    service.discover_agents = AsyncMock(return_value=True)
+    service.find_capable_agents = AsyncMock(return_value=[])
+    service.get_agent_by_id = AsyncMock(return_value=None)
+    service.get_available_agents = AsyncMock(return_value=[])
+    service.update_agent_heartbeat = AsyncMock(return_value=True)
+    service.update_agent_load = AsyncMock(return_value=True)
+    service.register_agent_capability = AsyncMock(return_value=True)
+    service.get_pool_statistics = AsyncMock(return_value={
+        "total_agents": 0,
+        "available_agents": 0,
+        "healthy_agents": 0,
+        "agents_by_type": {},
+        "agents_by_health_status": {}
+    })
+    service.agent_pool = {}
+    service.last_discovery_time = datetime.utcnow()
+
+    return service
+
+
+@pytest.fixture
+def mock_capability_matcher():
+    """Create mock capability matcher."""
+    from agentical.agents.capability_matcher import AdvancedCapabilityMatcher
+
+    matcher = Mock(spec=AdvancedCapabilityMatcher)
+    matcher.find_best_matches = AsyncMock(return_value=[])
+    matcher.calculate_match_score = AsyncMock(return_value=0.0)
+    matcher.validate_requirements = AsyncMock(return_value=True)
+
+    return matcher
+
+
+@pytest.fixture
+def sample_agent_pool_entries():
+    """Create sample agent pool entries for testing."""
+    try:
+        from agentical.agents.playbook_capabilities import (
+            AgentPoolEntry, PlaybookCapability, PerformanceMetrics,
+            HealthStatus, PlaybookCapabilityType, CapabilityComplexity
+        )
+
+        return [
+            AgentPoolEntry(
+                agent_id="test_agent_001",
+                agent_type="test",
+                agent_name="Test Agent 1",
+                description="First test agent",
+                available_tools=["filesystem", "git"],
+                supported_workflows=["sequential"],
+                health_status=HealthStatus.HEALTHY,
+                current_load=1,
+                max_concurrent_executions=5,
+                capabilities=[
+                    PlaybookCapability(
+                        name="test_capability_1",
+                        display_name="Test Capability 1",
+                        description="First test capability",
+                        capability_type=PlaybookCapabilityType.TASK_EXECUTION,
+                        complexity=CapabilityComplexity.SIMPLE,
+                        supported_step_types=["action"],
+                        required_tools=["filesystem"]
+                    )
+                ]
+            ),
+            AgentPoolEntry(
+                agent_id="test_agent_002",
+                agent_type="worker",
+                agent_name="Test Agent 2",
+                description="Second test agent",
+                available_tools=["memory", "fetch"],
+                supported_workflows=["parallel"],
+                health_status=HealthStatus.HEALTHY,
+                current_load=2,
+                max_concurrent_executions=3,
+                capabilities=[
+                    PlaybookCapability(
+                        name="test_capability_2",
+                        display_name="Test Capability 2",
+                        description="Second test capability",
+                        capability_type=PlaybookCapabilityType.DATA_PROCESSING,
+                        complexity=CapabilityComplexity.MODERATE,
+                        supported_step_types=["data_processing"],
+                        required_tools=["memory"]
+                    )
+                ]
+            ),
+            AgentPoolEntry(
+                agent_id="test_agent_003",
+                agent_type="monitor",
+                agent_name="Test Agent 3",
+                description="Third test agent",
+                available_tools=["logfire-mcp"],
+                supported_workflows=["loop"],
+                health_status=HealthStatus.WARNING,
+                current_load=0,
+                max_concurrent_executions=10,
+                capabilities=[
+                    PlaybookCapability(
+                        name="test_capability_3",
+                        display_name="Test Capability 3",
+                        description="Third test capability",
+                        capability_type=PlaybookCapabilityType.MONITORING,
+                        complexity=CapabilityComplexity.SIMPLE,
+                        supported_step_types=["monitoring"],
+                        required_tools=["logfire-mcp"]
+                    )
+                ]
+            )
+        ]
+    except ImportError:
+        # Return empty list if dependencies not available
+        return []
+
+
+@pytest.fixture
+def sample_capability_filters():
+    """Create sample capability filters for testing."""
+    try:
+        from agentical.agents.playbook_capabilities import (
+            CapabilityFilter, HealthStatus, PlaybookCapabilityType
+        )
+
+        return {
+            "basic": CapabilityFilter(
+                required_tools=["filesystem"],
+                workflow_types=["sequential"],
+                health_statuses=[HealthStatus.HEALTHY]
+            ),
+            "advanced": CapabilityFilter(
+                capability_types=[PlaybookCapabilityType.DATA_PROCESSING],
+                required_tools=["memory"],
+                workflow_types=["parallel"],
+                min_success_rate=0.9
+            ),
+            "monitoring": CapabilityFilter(
+                capability_types=[PlaybookCapabilityType.MONITORING],
+                required_tools=["logfire-mcp"],
+                workflow_types=["loop"],
+                health_statuses=[HealthStatus.HEALTHY, HealthStatus.WARNING]
+            ),
+            "empty": CapabilityFilter()
+        }
+    except ImportError:
+        return {}
+
+
+@pytest.fixture
+def agent_pool_test_data(sample_agent_pool_entries):
+    """Create comprehensive agent pool test data."""
+    return {
+        "agents": sample_agent_pool_entries,
+        "agent_count": len(sample_agent_pool_entries),
+        "healthy_count": len([a for a in sample_agent_pool_entries if hasattr(a, 'health_status') and a.health_status.value == 'healthy']),
+        "agent_types": list(set(a.agent_type for a in sample_agent_pool_entries if hasattr(a, 'agent_type'))),
+        "available_tools": list(set(tool for a in sample_agent_pool_entries if hasattr(a, 'available_tools') for tool in a.available_tools))
+    }
+
+
+@pytest.fixture
+def mock_agent_registry():
+    """Create mock agent registry for testing discovery."""
+    registry = Mock()
+    registry.list_agents = AsyncMock(return_value=[
+        {
+            "id": "registry_agent_001",
+            "name": "Registry Agent 1",
+            "type": "TestAgent",
+            "status": "idle",
+            "description": "Test agent from registry",
+            "capabilities_count": 2
+        },
+        {
+            "id": "registry_agent_002",
+            "name": "Registry Agent 2",
+            "type": "WorkerAgent",
+            "status": "busy",
+            "description": "Worker agent from registry",
+            "capabilities_count": 3
+        }
+    ])
+
+    # Mock individual agent metadata
+    mock_agent_1 = Mock()
+    mock_agent_1.metadata = Mock()
+    mock_agent_1.metadata.id = "registry_agent_001"
+    mock_agent_1.metadata.name = "Registry Agent 1"
+    mock_agent_1.metadata.description = "Test agent from registry"
+    mock_agent_1.metadata.available_tools = ["tool1", "tool2"]
+    mock_agent_1.metadata.version = "1.0.0"
+    mock_agent_1.metadata.tags = ["test"]
+
+    mock_agent_2 = Mock()
+    mock_agent_2.metadata = Mock()
+    mock_agent_2.metadata.id = "registry_agent_002"
+    mock_agent_2.metadata.name = "Registry Agent 2"
+    mock_agent_2.metadata.description = "Worker agent from registry"
+    mock_agent_2.metadata.available_tools = ["tool2", "tool3", "tool4"]
+    mock_agent_2.metadata.version = "1.1.0"
+    mock_agent_2.metadata.tags = ["worker"]
+
+    def get_agent_side_effect(agent_id):
+        if agent_id == "registry_agent_001":
+            return mock_agent_1
+        elif agent_id == "registry_agent_002":
+            return mock_agent_2
+        return None
+
+    registry.get_agent = Mock(side_effect=get_agent_side_effect)
+
+    return registry
+
+
+# ================================
+# CodeAgent Testing Fixtures
+# ================================
+
+@pytest.fixture
+def mock_code_agent():
+    """Create mock CodeAgent for testing."""
+    try:
+        from agentical.agents.code_agent import CodeAgent
+
+        agent = Mock(spec=CodeAgent)
+        agent.agent_id = "code-001"
+        agent.name = "CodeAgent"
+        agent.capabilities = [
+            "code_generation", "code_refactoring", "code_analysis",
+            "code_review", "test_generation", "documentation"
+        ]
+        agent.tools = [
+            "git", "github", "filesystem", "dart-mcp", "jupyter-mcp"
+        ]
+
+        # Mock core methods
+        agent.generate_code = AsyncMock(return_value={
+            "success": True,
+            "generated_code": "def sample_function(): pass",
+            "tests": "def test_sample_function(): assert True",
+            "documentation": "# Sample Function Documentation",
+            "validation": {"syntax_valid": True}
+        })
+
+        agent.refactor_code = AsyncMock(return_value={
+            "success": True,
+            "refactored_code": "def improved_function(): pass",
+            "changes": {"lines_modified": 1},
+            "validation": {"behavior_preserved": True}
+        })
+
+        agent.analyze_code = AsyncMock(return_value={
+            "success": True,
+            "analysis_results": {
+                "metrics": {"lines_of_code": 10, "complexity": 1},
+                "quality": {"score": 85.0},
+                "security": []
+            },
+            "recommendations": ["Add documentation"]
+        })
+
+        agent.review_code = AsyncMock(return_value={
+            "success": True,
+            "quality_score": 85.0,
+            "findings": {"minor": [], "major": []},
+            "suggestions": ["Follow naming conventions"]
+        })
+
+        agent.generate_tests = AsyncMock(return_value={
+            "success": True,
+            "generated_tests": {"unit": "def test_example(): pass"},
+            "coverage_estimate": 90.0
+        })
+
+        agent.generate_documentation = AsyncMock(return_value={
+            "success": True,
+            "api_documentation": "# API Documentation",
+            "inline_documentation": "# Inline docs",
+            "readme": "# README"
+        })
+
+        return agent
+    except ImportError:
+        pytest.skip("CodeAgent not available")
+
+
+@pytest.fixture
+def code_generation_samples():
+    """Sample code generation requests and expected outputs."""
+    return {
+        "python_function": {
+            "request": {
+                "language": "python",
+                "description": "Create a function to calculate factorial",
+                "function_name": "factorial",
+                "include_tests": True,
+                "include_docs": True
+            },
+            "expected_code": '''
+def factorial(n):
+    """Calculate factorial of n."""
+    if n <= 1:
+        return 1
+    return n * factorial(n - 1)
+''',
+            "expected_tests": '''
+import pytest
+
+def test_factorial():
+    assert factorial(0) == 1
+    assert factorial(1) == 1
+    assert factorial(5) == 120
+'''
+        },
+        "javascript_function": {
+            "request": {
+                "language": "javascript",
+                "description": "Create a function to validate email",
+                "function_name": "validateEmail",
+                "include_tests": True
+            },
+            "expected_code": '''
+function validateEmail(email) {
+    const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+    return emailRegex.test(email);
+}
+''',
+            "expected_tests": '''
+describe('validateEmail', () => {
+    test('valid email', () => {
+        expect(validateEmail('test@example.com')).toBe(true);
+    });
+
+    test('invalid email', () => {
+        expect(validateEmail('invalid-email')).toBe(false);
+    });
+});
+'''
+        }
+    }
+
+
+@pytest.fixture
+def code_analysis_samples():
+    """Sample code for analysis testing."""
+    return {
+        "simple_python": {
+            "code": '''
+def hello_world():
+    print("Hello, World!")
+
+def add_numbers(a, b):
+    return a + b
+''',
+            "expected_metrics": {
+                "lines_of_code": 5,
+                "functions": 2,
+                "complexity": "low"
+            }
+        },
+        "complex_python": {
+            "code": '''
+def complex_function(data):
+    result = []
+    for item in data:
+        if item is not None:
+            if isinstance(item, str):
+                if len(item) > 0:
+                    processed = item.upper().strip()
+                    if processed not in result:
+                        result.append(processed)
+                    else:
+                        continue
+                else:
+                    result.append("EMPTY")
+            elif isinstance(item, (int, float)):
+                result.append(str(item))
+            else:
+                result.append("UNKNOWN")
+        else:
+            result.append("NULL")
+    return result
+''',
+            "expected_metrics": {
+                "lines_of_code": 18,
+                "functions": 1,
+                "complexity": "high",
+                "nested_levels": 4
+            }
+        },
+        "security_issues": {
+            "code": '''
+import os
+import subprocess
+
+def execute_command(user_input):
+    os.system(f"ls {user_input}")
+
+def sql_query(user_input):
+    query = f"SELECT * FROM users WHERE name = '{user_input}'"
+    return query
+''',
+            "expected_issues": [
+                {"type": "command_injection", "severity": "high"},
+                {"type": "sql_injection", "severity": "high"}
+            ]
+        }
+    }
+
+
+@pytest.fixture
+def refactoring_scenarios():
+    """Sample refactoring scenarios for testing."""
+    return {
+        "extract_method": {
+            "original": '''
+def process_data(data):
+    # Complex processing logic
+    result = []
+    for item in data:
+        if item is not None and len(str(item)) > 0:
+            processed = str(item).upper().strip()
+            result.append(processed)
+    return result
+''',
+            "refactor_type": "extract_method",
+            "expected": '''
+def process_data(data):
+    result = []
+    for item in data:
+        processed_item = process_item(item)
+        if processed_item:
+            result.append(processed_item)
+    return result
+
+def process_item(item):
+    if item is not None and len(str(item)) > 0:
+        return str(item).upper().strip()
+    return None
+'''
+        },
+        "improve_readability": {
+            "original": '''
+def calc(x,y,op):
+    if op=='add':return x+y
+    elif op=='sub':return x-y
+    elif op=='mul':return x*y
+    elif op=='div':return x/y if y!=0 else None
+''',
+            "refactor_type": "improve_readability",
+            "expected": '''
+def calculate(x, y, operation):
+    """Perform basic arithmetic operations."""
+    if operation == 'add':
+        return x + y
+    elif operation == 'subtract':
+        return x - y
+    elif operation == 'multiply':
+        return x * y
+    elif operation == 'divide':
+        return x / y if y != 0 else None
+    else:
+        raise ValueError(f"Unsupported operation: {operation}")
+'''
+        }
+    }
+
+
+@pytest.fixture
+def programming_language_configs():
+    """Configuration for different programming languages."""
+    return {
+        "python": {
+            "file_extensions": [".py"],
+            "test_frameworks": ["pytest", "unittest"],
+            "linters": ["pylint", "flake8", "mypy"],
+            "formatters": ["black", "autopep8"],
+            "package_managers": ["pip", "poetry", "conda"]
+        },
+        "javascript": {
+            "file_extensions": [".js", ".mjs"],
+            "test_frameworks": ["jest", "mocha", "cypress"],
+            "linters": ["eslint", "jshint"],
+            "formatters": ["prettier"],
+            "package_managers": ["npm", "yarn"]
+        },
+        "typescript": {
+            "file_extensions": [".ts", ".tsx"],
+            "test_frameworks": ["jest", "mocha"],
+            "linters": ["eslint", "tslint"],
+            "formatters": ["prettier"],
+            "package_managers": ["npm", "yarn"]
+        }
+    }
