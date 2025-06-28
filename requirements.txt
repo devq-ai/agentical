@@ -1,0 +1,13 @@
+# Minimal requirements for Agentical GitHub Pages status generation
+# The status generator (generate_agentical_status.py) uses only Python standard library
+
+# No external dependencies required for status generation
+# Standard library modules used:
+# - json, sys, argparse, datetime, platform, pathlib, typing, os
+
+# This empty requirements file satisfies the GitHub Actions workflow
+# while keeping the status generator lightweight and dependency-free
+
+# If you need to add dependencies for the status generator later, add them here
+# Example:
+# requests>=2.28.0
