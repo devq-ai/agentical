@@ -42,6 +42,7 @@ from .playbook_agent import PlaybookAgent
 from .super_agent import SuperAgent
 from .code_agent import CodeAgent
 from .devops_agent import DevOpsAgent
+from .github_agent import GitHubAgent
 
 # Re-export for convenience
 agent_registry = get_agent_registry()
@@ -70,6 +71,7 @@ __all__ = [
     "SuperAgent",
     "CodeAgent",
     "DevOpsAgent",
+    "GitHubAgent",
 
     # Registry
     "AgentRegistry",

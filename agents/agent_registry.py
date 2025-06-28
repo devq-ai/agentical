@@ -28,6 +28,7 @@ from agentical.agents.base_agent import BaseAgent, AgentMetadata, AgentExecution
 from agentical.agents.generic_agent import GenericAgent
 from agentical.agents.super_agent import SuperAgent
 from agentical.agents.devops_agent import DevOpsAgent
+from agentical.agents.github_agent import GitHubAgent
 from agentical.core.exceptions import (
     AgenticalError,
     AgentError,
@@ -69,14 +70,16 @@ class AgentRegistry:
         self.register_agent_type("generic", GenericAgent)
         self.register_agent_type("super", SuperAgent)
         self.register_agent_type("devops", DevOpsAgent)
+        self.register_agent_type("github", GitHubAgent)
 
         # Pre-initialize some standard agents
         self.get_or_create_agent("generic_agent", "generic")
         self.get_or_create_agent("super_agent", "super")
         self.get_or_create_agent("devops_agent", "devops")
+        self.get_or_create_agent("github_agent", "github")
 
         self.initialized = True
-        logger.info("Agent registry initialized with built-in agent types: generic, super, devops")
+        logger.info("Agent registry initialized with built-in agent types: generic, super, devops, github")
 
     def register_agent_type(self, type_name: str, agent_class: Type[BaseAgent]) -> None:
         """
